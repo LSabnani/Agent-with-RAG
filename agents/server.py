@@ -51,8 +51,29 @@ DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemma-4-26b-a4b-it")
 custom_agent = CustomAgent(doc_rag_url=DOC_RAG_URL, tools_url=TOOLS_URL, logging_url=LOGGING_URL, gemini_api_key=GEMINI_API_KEY)
 adk_agent = GoogleADKAgent(doc_rag_url=DOC_RAG_URL, tools_url=TOOLS_URL, logging_url=LOGGING_URL, gemini_api_key=GEMINI_API_KEY)
 
-# Scan skills on startup
-SKILLS_DIR = os.environ.get("SKILLS_DIR", os.path.join(os.path.dirname(__file__), "..", "skills"))
+# Load API keys previously configured for agent services from secrets/keys
+KEYS_FILE = os.path.join(SECRETS_DIR, "keys")
+def load_agent_keys():
+    keys = {}
+    if os.path.exists(KEYS_FILE):
+        try:
+            with open(KEYS_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            keys[k.strip()] = v.strip()
+                        else:
+                            keys[line] = line
+        except Exception as e:
+            print(f"[Agents] Error reading keys file: {e}")
+    return keys
+
+configured_agent_keys = load_agent_keys()
+
+# Scan skills on startup from agents/skills/
+SKILLS_DIR = os.environ.get("SKILLS_DIR", os.path.join(os.path.dirname(__file__), "skills"))
 loaded_skills = []
 
 @app.before_request
@@ -128,7 +149,7 @@ def process_chat():
     skill_threshold = float(data.get("skill_threshold", 0.2))
     doc_threshold = float(data.get("doc_threshold", 0.3))
     max_chunks = int(data.get("max_chunks", 5))
-    custom_endpoint = data.get("custom_endpoint")
+    custom_endpoint = data.get("custom_endpoint") if "custom" in (model or "").lower() else None
     api_key = data.get("api_key") or request.headers.get("X-API-Key")
 
     if not message.strip():

@@ -95,7 +95,8 @@ def get_embedding(text, model=None, conv_id=None, user_id=None):
                     "date_time": datetime.now(timezone.utc).isoformat(),
                     "operation": "embed",
                     "model_used": m,
-                    "text_sample": text[:80]
+                    "text": text,
+                    "text_sample": text[:100]
                 },
                 resp_payload={"dimension": len(vec), "duration_ms": dur_ms, "status": "success"},
                 conv_id=conv_id
@@ -106,8 +107,8 @@ def get_embedding(text, model=None, conv_id=None, user_id=None):
 
     # Deterministic fallback vector in case Ollama model is downloading
     h = hashlib.sha256(text.encode("utf-8")).digest()
-    fallback_dim = 768
-    vector = [(float(b) / 255.0 * 2.0 - 1.0) for b in (h * 24)[:fallback_dim]]
+    fallback_dim = 1024
+    vector = [(float(b) / 255.0 * 2.0 - 1.0) for b in (h * 32)[:fallback_dim]]
     return vector
 
 def chunk_text(text, chunk_size=800, overlap=100):
@@ -171,6 +172,7 @@ def list_documents_and_skills():
 @app.route("/api/rag/add", methods=["POST"])
 @app.route("/api/rag/documents/add", methods=["POST"])
 def add_document_or_skill():
+    global skill_collection, doc_collection
     data = request.get_json(silent=True) or {}
     user_id = data.get("user_id", "admin")
     doc_type = (data.get("type") or data.get("document_type") or "document").lower()
@@ -194,18 +196,37 @@ def add_document_or_skill():
         vector = get_embedding(vector_text, user_id=user_id)
         skill_id = f"skill_{hashlib.md5(name.encode('utf-8')).hexdigest()}"
 
-        skill_collection.upsert(
-            ids=[skill_id],
-            embeddings=[vector],
-            documents=[complete_text],
-            metadatas=[{
-                "type": "skill",
-                "name": name,
-                "skill_name": name,
-                "date_time": now_iso,
-                "vector_text": vector_text
-            }]
-        )
+        try:
+            skill_collection.upsert(
+                ids=[skill_id],
+                embeddings=[vector],
+                documents=[complete_text],
+                metadatas=[{
+                    "type": "skill",
+                    "name": name,
+                    "skill_name": name,
+                    "date_time": now_iso,
+                    "vector_text": vector_text
+                }]
+            )
+        except Exception as e:
+            if "dimension" in str(e).lower():
+                chroma_client.delete_collection("skills")
+                skill_collection = chroma_client.get_or_create_collection(name="skills", metadata={"hnsw:space": "cosine"})
+                skill_collection.upsert(
+                    ids=[skill_id],
+                    embeddings=[vector],
+                    documents=[complete_text],
+                    metadatas=[{
+                        "type": "skill",
+                        "name": name,
+                        "skill_name": name,
+                        "date_time": now_iso,
+                        "vector_text": vector_text
+                    }]
+                )
+            else:
+                raise e
 
         log_event(
             invoker="Vector DB",
@@ -254,7 +275,15 @@ def add_document_or_skill():
                 "vector_text": c
             })
 
-        doc_collection.upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+        try:
+            doc_collection.upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+        except Exception as e:
+            if "dimension" in str(e).lower():
+                chroma_client.delete_collection("documents")
+                doc_collection = chroma_client.get_or_create_collection(name="documents", metadata={"hnsw:space": "cosine"})
+                doc_collection.upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+            else:
+                raise e
 
         log_event(
             invoker="Vector DB",
@@ -372,23 +401,25 @@ def query_documents():
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    query_req_payload = {
+        "service": "Vector DB",
+        "user_id": user_id,
+        "conversation_id": conv_id,
+        "date_time": now_iso,
+        "operation": "query_request",
+        "document_type": doc_type,
+        "k": k,
+        "threshold": threshold,
+        "query_string": query_string
+    }
+
     # Log 1: Query Request
     log_event(
         invoker=data.get("invoker", "agent"),
         recipient="Vector DB",
         event_type="vector_db_query_request",
         short_desc=f"Query {doc_type} DB request",
-        req_payload={
-            "service": "Vector DB",
-            "user_id": user_id,
-            "conversation_id": conv_id,
-            "date_time": now_iso,
-            "operation": "query_request",
-            "document_type": doc_type,
-            "k": k,
-            "threshold": threshold,
-            "query_string": query_string
-        },
+        req_payload=query_req_payload,
         resp_payload={},
         conv_id=conv_id
     )
@@ -427,13 +458,13 @@ def query_documents():
         matches.sort(key=lambda x: x["similarity_score"], reverse=True)
         matches = matches[:k]
 
-    # Log 2: Query Response
+    # Log 2: Query Response (Include FULL chunk text and query details)
     log_event(
         invoker="Vector DB",
         recipient=data.get("invoker", "agent"),
         event_type="vector_db_query_response",
         short_desc=f"Query {doc_type} DB response: {len(matches)} matches",
-        req_payload={},
+        req_payload=query_req_payload,
         resp_payload={
             "service": "Vector DB",
             "user_id": user_id,
@@ -444,10 +475,12 @@ def query_documents():
                 {
                     "name": m["name"],
                     "similarity_score": m["similarity_score"],
-                    "chunk_text": m["chunk_text"][:200]
+                    "chunk_text": m["chunk_text"],
+                    "metadata": m.get("metadata", {})
                 }
                 for m in matches
-            ]
+            ],
+            "count": len(matches)
         },
         conv_id=conv_id
     )

@@ -245,11 +245,44 @@ def get_models():
 @app.route("/api/chat", methods=["POST"])
 def proxy_chat():
     data = request.get_json(silent=True) or {}
+    conv_id = data.get("conversation_id") or f"conv_{int(time.time())}"
+    data["conversation_id"] = conv_id
     url = resolve_url(AGENTS_URL, "agents", 8002)
+
+    # Log outgoing chat request from Web UI to Agents
+    log_event(
+        invoker="Web UI",
+        recipient="agents",
+        event_type="chat_request",
+        desc=f"Web UI submitted query: '{data.get('message', '')[:80]}'",
+        payload=data,
+        conv_id=conv_id
+    )
+
     try:
         r = requests.post(f"{url}/api/agent/chat", json=data, timeout=60)
-        return jsonify(r.json()), r.status_code
+        res_data = r.json()
+        
+        # Log response received by Web UI from Agents
+        log_event(
+            invoker="agents",
+            recipient="Web UI",
+            event_type="chat_response",
+            desc=f"Web UI received response from agent ({res_data.get('elapsed_ms', 0)}ms)",
+            payload=res_data,
+            conv_id=conv_id
+        )
+        return jsonify(res_data), r.status_code
     except Exception as e:
+        log_event(
+            invoker="agents",
+            recipient="Web UI",
+            event_type="chat_error",
+            desc=f"Agent request failed: {e}",
+            payload={"error": str(e)},
+            conv_id=conv_id,
+            status="error"
+        )
         return jsonify({"error": f"Agent service unreachable: {e}"}), 502
 
 @app.route("/api/evidence/<conv_id>", methods=["GET"])
@@ -432,6 +465,7 @@ def proxy_audit_conversations():
         return jsonify({"conversations": []})
 
 @app.route("/api/audit/events/<conv_id>", methods=["GET"])
+@app.route("/api/logs/<conv_id>", methods=["GET"])
 def proxy_audit_events(conv_id):
     url = resolve_url(LOGGING_URL, "logging", 8006)
     try:

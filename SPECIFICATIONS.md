@@ -8,10 +8,11 @@ Agent-with-RAG/
 │   ├── custom_agent/        # Custom autonomous planning & orchestrator agent
 │   ├── genai/               # Google ADK / GenAI Agent implementation
 │   ├── secrets/             # Agent runtime secrets (.env, keys)
+│   ├── skills/              # Domain skills (SKILL.md, tools, and trigger queries)
 │   ├── Dockerfile
 │   └── server.py
 ├── auth_service/            # Authentication & API Key Management Service (Port 8001)
-│   ├── data/                # SQLite persistent storage (auth.db)
+│   ├── secrets/                # SQLite persistent storage (auth.db)
 │   ├── Dockerfile
 │   └── server.py
 ├── doc_RAG/                 # ChromaDB Vector Store & Embedding Manager (Port 8003)
@@ -33,7 +34,6 @@ Agent-with-RAG/
 │   ├── templates/           # Flask Jinja2 HTML templates
 │   ├── Dockerfile
 │   └── app.py
-├── skills/                  # Domain skills (SKILL.md, tools, and trigger queries)
 ├── sample_docs/             # Sample markdown knowledge documents
 ├── tests/                   # Pytest microservices test suite
 ├── docker-compose.yml       # 7-container deployment configuration
@@ -339,7 +339,7 @@ The Documents and Skills container accesses:
 
 ### Authentication Service
 - Create a container for the authentication & authorization services in the auth_service/ folder
-  - Persist user accounts and API keys in an SQLite database mounted to host ./auth_service/data/ volume.
+  - Persist user accounts and API keys in an SQLite database mounted to host ./auth_service/secrets/ volume.
   - Seed a default initial Admin account on first startup: username: admin, password: admin123
   - Manages user accounts and API keys as described in the "Passwords & API keys" page in the web UI.
   - When a new user account is created, it is initially set to "Locked" status. The administrator can unlock the account via the UI.
@@ -360,24 +360,24 @@ The Documents and Skills container accesses:
   - Link the .env from the root folder to the agents/secrets folder
   - The secrets/ folder in the container should map to the agents/secrets/ folder on the host. Use volume to persist the secrets/ on the host.
   - Upon start up:
-    - import GEMINI_API_KEY from the .env file
+    - import GEMINI_API_KEY from the secrets/.env file
     - import API keys that had been previously configured for the agent services from the secrets/keys file
-    - The app should scan the skills/ folder and load the skills that are not currently in the skills vector database.
+    - The app should scan the agents/skills/ folder and load the skills that are not currently in the skills vector database.
   - Store all API keys configured in the keys file in the secrets/keys file
   - Use GEMINI_API_KEY to make the LLM calls using Google genai library
 
-
   - The skills folder structure should as follow:
   ```
-  ├── skills/
-  │   ├── <skill_name>/          # Skill folder (e.g., time-weather-skill)
-  │   │   ├── SKILL.md            # Skill metadata and SOP
-  │   │   └── scripts/            # Python scripts for tools
-  │   │       └── tool_*.py       # Tool scripts (e.g., env_tools.py)
-  │   └── <another_skill>/       # Another skill folder
-  │       ├── SKILL.md            # Skill metadata and SOP
-  │       └── scripts/            # Python scripts for tools
-  │           └── tool_*.py       # Tool scripts
+  ├── agents/                    # Custom and Google ADK Agent microservices (Port 8002)
+  │   └── skills/                # Domain skills (SKILL.md, tools, and trigger queries)
+  │       ├── <skill_name>/      # Skill folder (e.g., time-weather-skill)
+  │       │   ├── SKILL.md       # Skill metadata and SOP
+  │       │   └── scripts/       # Python scripts for tools
+  │       │       └── tool_*.py  # Tool scripts (e.g., env_tools.py)
+  │       └── <another_skill>/   # Another skill folder
+  │           ├── SKILL.md       # Skill metadata and SOP
+  │           └── scripts/       # Python scripts for tools
+  │               └── tool_*.py  # Tool scripts
   ```
 
   - Create two agents: Custom agent and Google genai agent.
@@ -429,11 +429,11 @@ The Custom Agent should operate as follow:
   - In all of the logs, include the time of the call, the type of the call, the invoker, the recipient, and all the raw payload passed in the message.
 
 #### Sample Skills and Tools
-- Create the following skills using the skills folder structure. The skills should at least have the name, description, Trigger Queries, etc:
+- Create the following skills using the agents/skills folder structure. The skills should at least have the name, description, Trigger Queries, etc:
   - Write the SKILL.md file to get the time and weather of the city in the query.
-    - Create the python code in the skills/<skill_name>/scripts/ folder that will get the time and weather of the city in the query. Use a site that doesn't require API key to get the data
+    - Create the python code in the agents/skills/<skill_name>/scripts/ folder that will get the time and weather of the city in the query. Use a site that doesn't require API key to get the data
   - Write the SKILL.md file to get the list of stocks with the highest percentage increase or lowest percentage decrease based on the chat question.
-    - Create the python code in the skills/<skill_name>/scripts/ folder that will get the list of stocks with the highest percentage increase or lowest percentage decrease based on the chat question. Call the tools container to get the response.
+    - Create the python code in the agents/skills/<skill_name>/scripts/ folder that will get the list of stocks with the highest percentage increase or lowest percentage decrease based on the chat question. Call the tools container to get the response.
   - Write the SKILL.md file to get the list of top k text chunks from the document vector database.
     - Call the tools container to get the response.
   - Write the SKILL.md file to get the name, city, country, or job title of the person in the CSV file.

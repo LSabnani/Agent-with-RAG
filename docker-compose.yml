@@ -22,10 +22,11 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - ./auth_service/data:/app/data
+      - ./auth_service/secrets:/app/secrets
     environment:
       - PORT=8001
       - RUNNING_IN_DOCKER=true
+      - SECRETS_DIR=/app/secrets
       - LOGGING_SERVICE_URL=http://logging:8006/api/logs
     depends_on:
       - logging
@@ -89,14 +90,14 @@ services:
       - "8002:8002"
     volumes:
       - ./agents/secrets:/app/secrets
-      - ./skills:/skills:ro
+      - ./agents/skills:/app/skills:ro
     environment:
       - PORT=8002
       - RUNNING_IN_DOCKER=true
       - DOC_RAG_URL=http://doc_rag:8003
       - TOOLS_URL=http://tools:8005
       - LOGGING_URL=http://logging:8006
-      - SKILLS_DIR=/skills
+      - SKILLS_DIR=/app/skills
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemma-4-26b-a4b-it}
     depends_on:

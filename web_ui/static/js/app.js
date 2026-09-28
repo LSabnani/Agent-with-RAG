@@ -231,11 +231,12 @@ document.addEventListener('DOMContentLoaded', () => {
         availableModelsData = mData.models || [];
         chatModel.innerHTML = '';
 
+        const defModel = mData.default || mData.default_model;
         availableModelsData.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m.id;
-          opt.textContent = `${m.id} (Max tokens: ${m.output_token_limit})`;
-          if (m.id === mData.default_model) {
+          opt.textContent = `${m.id} (Max tokens: ${m.max_output_tokens || m.output_token_limit || 4096})`;
+          if (m.id === defModel) {
             opt.selected = true;
           }
           chatModel.appendChild(opt);
@@ -335,6 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSendMessage.disabled = true;
 
     try {
+      const isCustomModel = (chatModel.value || '').toLowerCase().includes('custom');
       const payload = {
         message: text,
         agent: agentChoice.value,
@@ -346,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         skill_mode: chatSkills.value,
         skill_threshold: parseFloat(chatSkillThreshold.value) || 0.2,
         doc_threshold: parseFloat(docThresholdInput.value) || 0.3,
-        custom_endpoint: customEndpoint.value.trim(),
+        custom_endpoint: isCustomModel ? customEndpoint.value.trim() : null,
       };
 
       const res = await fetch('/api/chat', {
@@ -993,15 +995,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      eventsTbody.innerHTML = currentEventsCache.map((evt, idx) => `
-        <tr class="event-row" data-idx="${idx}">
-          <td><span style="font-family:var(--font-mono);font-size:0.75rem;">${escapeHtml(evt.local_time)}</span></td>
-          <td><span class="step-bubble ${evt.event_type.toLowerCase().replace(/\s+/g, '-')}">${escapeHtml(evt.event_type)}</span></td>
-          <td><strong>${escapeHtml(evt.invoker)}</strong></td>
-          <td>${escapeHtml(evt.target)}</td>
-          <td>${escapeHtml(evt.short_description)}</td>
-        </tr>
-      `).join('');
+      eventsTbody.innerHTML = currentEventsCache.map((evt, idx) => {
+        const localTime = evt.local_time || evt.timestamp || '';
+        const eventType = evt.event_type || evt.type || 'generic';
+        const invoker = evt.invoker || 'unknown';
+        const target = evt.target || evt.recipient || 'unknown';
+        const desc = evt.short_description || '';
+        return `
+          <tr class="event-row" data-idx="${idx}">
+            <td><span style="font-family:var(--font-mono);font-size:0.75rem;">${escapeHtml(localTime)}</span></td>
+            <td><span class="step-bubble ${eventType.toLowerCase().replace(/\s+/g, '-')}">${escapeHtml(eventType)}</span></td>
+            <td><strong>${escapeHtml(invoker)}</strong></td>
+            <td>${escapeHtml(target)}</td>
+            <td>${escapeHtml(desc)}</td>
+          </tr>
+        `;
+      }).join('');
 
       // Bind click to open detail inspector
       eventsTbody.querySelectorAll('.event-row').forEach(row => {
@@ -1022,39 +1031,65 @@ document.addEventListener('DOMContentLoaded', () => {
     let prompt = null;
     let response = null;
 
-    // Extract Prompt / Input
-    if (payload.prompt !== undefined && payload.prompt !== null) {
-      prompt = payload.prompt;
-      if (payload.system_instruction && typeof prompt === 'string') {
-        prompt = `[System Instruction]\n${payload.system_instruction}\n\n[User Prompt]\n${prompt}`;
+    // Check payload.request and payload.response (standard inter-container format)
+    if (payload.request !== undefined && payload.request !== null) {
+      if (typeof payload.request === 'object' && Object.keys(payload.request).length > 0) {
+        prompt = payload.request;
+      } else if (typeof payload.request === 'string' && payload.request.trim() !== '') {
+        prompt = payload.request;
       }
-    } else if (payload.message !== undefined && payload.message !== null) {
-      prompt = payload.message;
-    } else if (payload.query !== undefined && payload.query !== null) {
-      prompt = payload.query;
-    } else if (payload.arguments !== undefined && payload.arguments !== null) {
-      prompt = payload.arguments;
-    } else if (payload.text_sample !== undefined && payload.text_sample !== null) {
-      prompt = payload.text_sample;
-    } else if (payload.input !== undefined && payload.input !== null) {
-      prompt = payload.input;
+    }
+    if (payload.response !== undefined && payload.response !== null) {
+      if (typeof payload.response === 'object' && Object.keys(payload.response).length > 0) {
+        response = payload.response;
+      } else if (typeof payload.response === 'string' && payload.response.trim() !== '') {
+        response = payload.response;
+      }
+    }
+
+    // Extract Prompt / Input
+    if (prompt === null) {
+      if (payload.prompt !== undefined && payload.prompt !== null) {
+        prompt = payload.prompt;
+        if (payload.system_instruction && typeof prompt === 'string') {
+          prompt = `[System Instruction]\n${payload.system_instruction}\n\n[User Prompt]\n${prompt}`;
+        }
+      } else if (payload.message !== undefined && payload.message !== null) {
+        prompt = payload.message;
+      } else if (payload.query !== undefined && payload.query !== null) {
+        prompt = payload.query;
+      } else if (payload.arguments !== undefined && payload.arguments !== null) {
+        prompt = payload.arguments;
+      } else if (payload.text !== undefined && payload.text !== null) {
+        prompt = payload.text;
+      } else if (payload.text_sample !== undefined && payload.text_sample !== null) {
+        prompt = payload.text_sample;
+      } else if (payload.input !== undefined && payload.input !== null) {
+        prompt = payload.input;
+      }
     }
 
     // Extract Response / Output
-    if (payload.response_text !== undefined && payload.response_text !== null) {
-      response = payload.response_text;
-    } else if (payload.response !== undefined && payload.response !== null) {
-      response = payload.response;
-    } else if (payload.result !== undefined && payload.result !== null) {
-      response = payload.result;
-    } else if (payload.matches !== undefined && payload.matches !== null) {
-      response = payload.matches;
-    } else if (payload.results !== undefined && payload.results !== null) {
-      response = payload.results;
-    } else if (payload.output !== undefined && payload.output !== null) {
-      response = payload.output;
-    } else if (payload.raw_response !== undefined && payload.raw_response !== null) {
-      response = payload.raw_response;
+    if (response === null) {
+      if (payload.response_text !== undefined && payload.response_text !== null) {
+        response = payload.response_text;
+      } else if (payload.response !== undefined && payload.response !== null) {
+        response = payload.response;
+      } else if (payload.result !== undefined && payload.result !== null) {
+        response = payload.result;
+      } else if (payload.matches !== undefined && payload.matches !== null) {
+        response = payload.matches;
+      } else if (payload.results !== undefined && payload.results !== null) {
+        response = payload.results;
+      } else if (payload.matched_items !== undefined && payload.matched_items !== null) {
+        response = payload.matched_items;
+      } else if (payload.steps !== undefined && payload.steps !== null) {
+        response = payload.steps;
+      } else if (payload.output !== undefined && payload.output !== null) {
+        response = payload.output;
+      } else if (payload.raw_response !== undefined && payload.raw_response !== null) {
+        response = payload.raw_response;
+      }
     }
 
     // Contextual fallback: if neither is set, use description for prompt

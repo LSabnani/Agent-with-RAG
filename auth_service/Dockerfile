@@ -8,6 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8001
-VOLUME ["/app/data"]
+VOLUME ["/app/secrets"]
 
 CMD ["python", "server.py"]

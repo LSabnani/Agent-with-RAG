@@ -41,8 +41,9 @@ class CustomAgent:
     def call_llm(self, prompt, system_instruction=None, model="gemma-4-26b-a4b-it", temperature=0.7, max_tokens=2048, custom_endpoint=None, conv_id=None):
         start_time = time.time()
         
-        # If custom OpenAI-compatible endpoint specified
-        if custom_endpoint:
+        # If custom OpenAI-compatible endpoint specified and model is custom
+        is_custom_model = "custom" in (model or "").lower()
+        if custom_endpoint and is_custom_model:
             try:
                 headers = {"Content-Type": "application/json"}
                 msgs = []
@@ -56,6 +57,15 @@ class CustomAgent:
                     "temperature": temperature,
                     "max_tokens": max_tokens
                 }
+                self.log(
+                    invoker="Custom Agent",
+                    recipient="Custom LLM",
+                    event_type="llm_invocation",
+                    desc=f"Sent prompt to custom model: {model}",
+                    payload=payload,
+                    conv_id=conv_id,
+                    model=model
+                )
                 resp = requests.post(custom_endpoint, json=payload, headers=headers, timeout=30)
                 dur_ms = int((time.time() - start_time) * 1000)
                 res_json = resp.json()
@@ -66,11 +76,21 @@ class CustomAgent:
                 out_tok = usage.get("completion_tokens", len(text) // 4)
 
                 self.log(
-                    invoker="Custom Agent",
-                    recipient="Custom LLM",
-                    event_type="llm_call",
-                    desc=f"Called Custom Endpoint: {model}",
-                    payload={"prompt": prompt, "system": system_instruction, "response": text},
+                    invoker="Custom LLM",
+                    recipient="Custom Agent",
+                    event_type="llm_response",
+                    desc=f"Received response from custom model: {model} ({dur_ms}ms)",
+                    payload={
+                        "model": model,
+                        "response_text": text,
+                        "response": text,
+                        "raw_response": res_json,
+                        "input_tokens": in_tok,
+                        "output_tokens": out_tok,
+                        "duration_ms": dur_ms,
+                        "prompt": prompt,
+                        "system_instruction": system_instruction
+                    },
                     conv_id=conv_id,
                     dur_ms=dur_ms,
                     in_tok=in_tok,
@@ -85,49 +105,88 @@ class CustomAgent:
 
         # Google Gemini AI Studio client
         if self.gemini_api_key:
-            try:
-                from google import genai
-                from google.genai import types
-                client = genai.Client(api_key=self.gemini_api_key)
-                
-                config_params = {
-                    "temperature": temperature,
-                    "max_output_tokens": max_tokens
-                }
-                if system_instruction:
-                    config_params["system_instruction"] = system_instruction
+            from google import genai
+            from google.genai import types
+            client = genai.Client(api_key=self.gemini_api_key)
 
-                resp = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(**config_params)
-                )
-                dur_ms = int((time.time() - start_time) * 1000)
-                text = resp.text or ""
+            config_params = {
+                "temperature": temperature,
+                "max_output_tokens": max_tokens
+            }
+            if system_instruction:
+                config_params["system_instruction"] = system_instruction
 
-                # Token usage
-                usage_meta = getattr(resp, "usage_metadata", None)
-                in_tok = getattr(usage_meta, "prompt_token_count", len(prompt) // 4) or (len(prompt) // 4)
-                out_tok = getattr(usage_meta, "candidates_token_count", len(text) // 4) or (len(text) // 4)
+            # Try requested model, and failover across active models on 503 / 404 / 429
+            candidate_models = [model]
+            for fb in ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemma-4-26b-a4b-it"]:
+                if fb not in candidate_models:
+                    candidate_models.append(fb)
 
-                self.log(
-                    invoker="Custom Agent",
-                    recipient="LLM",
-                    event_type="llm_call",
-                    desc=f"Generated content via Google GenAI ({model})",
-                    payload={"prompt": prompt, "system_instruction": system_instruction, "response": text},
-                    conv_id=conv_id,
-                    dur_ms=dur_ms,
-                    in_tok=in_tok,
-                    out_tok=out_tok,
-                    model=model
-                )
-                return text, in_tok, out_tok, dur_ms
-            except Exception as e:
-                dur_ms = int((time.time() - start_time) * 1000)
-                self.log("Custom Agent", "LLM", "llm_error", f"Gemini API error: {e}", {"error": str(e)}, conv_id, "error", dur_ms, is_error=True)
-                # Fallback to local simulation if key or quota issue
-                return self._fallback_assistant_response(prompt, system_instruction), 50, 100, dur_ms
+            last_err = None
+            for try_model in candidate_models:
+                for attempt in range(2):
+                    try:
+                        self.log(
+                            invoker="Custom Agent",
+                            recipient="LLM",
+                            event_type="llm_invocation",
+                            desc=f"Sent prompt to Google GenAI ({try_model})",
+                            payload={
+                                "model": try_model,
+                                "prompt": prompt,
+                                "system_instruction": system_instruction,
+                                "config": config_params
+                            },
+                            conv_id=conv_id,
+                            model=try_model
+                        )
+
+                        resp = client.models.generate_content(
+                            model=try_model,
+                            contents=prompt,
+                            config=types.GenerateContentConfig(**config_params)
+                        )
+                        dur_ms = int((time.time() - start_time) * 1000)
+                        text = resp.text or ""
+
+                        # Token usage
+                        usage_meta = getattr(resp, "usage_metadata", None)
+                        in_tok = getattr(usage_meta, "prompt_token_count", len(prompt) // 4) or (len(prompt) // 4)
+                        out_tok = getattr(usage_meta, "candidates_token_count", len(text) // 4) or (len(text) // 4)
+
+                        self.log(
+                            invoker="LLM",
+                            recipient="Custom Agent",
+                            event_type="llm_response",
+                            desc=f"Received response from Google GenAI ({try_model}) in {dur_ms}ms",
+                            payload={
+                                "model": try_model,
+                                "response_text": text,
+                                "response": text,
+                                "prompt": prompt,
+                                "system_instruction": system_instruction,
+                                "input_tokens": in_tok,
+                                "output_tokens": out_tok,
+                                "duration_ms": dur_ms
+                            },
+                            conv_id=conv_id,
+                            dur_ms=dur_ms,
+                            in_tok=in_tok,
+                            out_tok=out_tok,
+                            model=try_model
+                        )
+                        return text, in_tok, out_tok, dur_ms
+                    except Exception as e:
+                        last_err = e
+                        err_str = str(e)
+                        if "503" in err_str or "404" in err_str or "429" in err_str:
+                            time.sleep(0.5)
+                            continue
+                        break
+
+            dur_ms = int((time.time() - start_time) * 1000)
+            self.log("Custom Agent", "LLM", "llm_error", f"Gemini API error: {last_err}", {"error": str(last_err)}, conv_id, "error", dur_ms, is_error=True)
+            return self._fallback_assistant_response(prompt, system_instruction), 50, 100, dur_ms
 
         # Fallback simulation if no API key configured
         dur_ms = int((time.time() - start_time) * 1000)
@@ -178,16 +237,34 @@ class CustomAgent:
             # Query doc_RAG skill vector store
             try:
                 rag_url = self._resolve(self.doc_rag_url, "doc_rag", 8003)
-                resp = requests.post(f"{rag_url}/api/rag/query", json={
+                skill_req = {
                     "db_type": "skill",
                     "query": message,
                     "threshold": skill_threshold,
                     "limit": 2,
                     "conversation_id": conversation_id,
-                    "api_key": api_key
-                }, timeout=5)
+                    "api_key": api_key,
+                    "invoker": "Custom Agent"
+                }
+                self.log(
+                    invoker="Custom Agent",
+                    recipient="doc_rag",
+                    event_type="skill_vector_query",
+                    desc=f"Query skills vector DB: '{message[:80]}'",
+                    payload=skill_req,
+                    conv_id=conversation_id
+                )
+                resp = requests.post(f"{rag_url}/api/rag/query", json=skill_req, timeout=5)
                 if resp.status_code == 200:
                     matched_skills = resp.json().get("results", [])
+                    self.log(
+                        invoker="doc_rag",
+                        recipient="Custom Agent",
+                        event_type="skill_vector_response",
+                        desc=f"Received {len(matched_skills)} matched skills",
+                        payload={"results": matched_skills, "count": len(matched_skills)},
+                        conv_id=conversation_id
+                    )
             except Exception as e:
                 pass
             
@@ -311,15 +388,33 @@ class CustomAgent:
                     # Query doc_RAG
                     try:
                         rag_url = self._resolve(self.doc_rag_url, "doc_rag", 8003)
-                        r = requests.post(f"{rag_url}/api/rag/query", json={
+                        doc_req = {
                             "db_type": "document",
                             "query": t_args.get("query", message),
                             "threshold": doc_threshold,
                             "limit": max_chunks,
                             "conversation_id": conversation_id,
-                            "api_key": api_key
-                        }, timeout=5)
+                            "api_key": api_key,
+                            "invoker": "Custom Agent"
+                        }
+                        self.log(
+                            invoker="Custom Agent",
+                            recipient="doc_rag",
+                            event_type="document_vector_query",
+                            desc=f"Query document vector DB: '{doc_req['query'][:80]}'",
+                            payload=doc_req,
+                            conv_id=conversation_id
+                        )
+                        r = requests.post(f"{rag_url}/api/rag/query", json=doc_req, timeout=5)
                         tool_result = r.json()
+                        self.log(
+                            invoker="doc_rag",
+                            recipient="Custom Agent",
+                            event_type="document_vector_response",
+                            desc=f"Received document chunks from vector store",
+                            payload=tool_result,
+                            conv_id=conversation_id
+                        )
                     except Exception as e:
                         tool_result = {"error": str(e)}
                     comp_name = "RAG"
@@ -328,13 +423,31 @@ class CustomAgent:
                     # Query Tools container
                     try:
                         tools_url = self._resolve(self.tools_url, "tools", 8005)
-                        r = requests.post(f"{tools_url}/api/tools/call", json={
+                        tool_req = {
                             "tool": t_name,
                             "arguments": t_args,
                             "conversation_id": conversation_id,
-                            "api_key": api_key
-                        }, timeout=8)
+                            "api_key": api_key,
+                            "invoker": "Custom Agent"
+                        }
+                        self.log(
+                            invoker="Custom Agent",
+                            recipient="tools",
+                            event_type="tool_invocation",
+                            desc=f"Invoking tool: {t_name}",
+                            payload=tool_req,
+                            conv_id=conversation_id
+                        )
+                        r = requests.post(f"{tools_url}/api/tools/call", json=tool_req, timeout=8)
                         tool_result = r.json().get("result", {})
+                        self.log(
+                            invoker="tools",
+                            recipient="Custom Agent",
+                            event_type="tool_response",
+                            desc=f"Received response from tool: {t_name}",
+                            payload={"tool": t_name, "result": tool_result},
+                            conv_id=conversation_id
+                        )
                     except Exception as e:
                         tool_result = {"error": str(e)}
                     comp_name = "Tools"
@@ -379,13 +492,20 @@ class CustomAgent:
 
         total_elapsed = int((time.time() - agent_start) * 1000)
 
-        # Log Final Response
+        # Log Final Response with FULL steps payload
         self.log(
             invoker="Custom Agent",
             recipient="Web UI",
             event_type="chat_response",
             desc=f"Agent response completed in {total_elapsed}ms",
-            payload={"response": final_answer, "steps_count": len(steps)},
+            payload={
+                "conversation_id": conversation_id,
+                "response": final_answer,
+                "agent_type": "Custom Agent",
+                "model": model,
+                "elapsed_ms": total_elapsed,
+                "steps": steps
+            },
             conv_id=conversation_id,
             dur_ms=total_elapsed
         )

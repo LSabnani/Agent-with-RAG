@@ -21,9 +21,9 @@ except ImportError:
         response.headers["Access-Control-Allow-Methods"] = "*"
         return response
 
-DATA_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "data"))
-os.makedirs(DATA_DIR, exist_ok=True)
-DB_PATH = os.path.join(DATA_DIR, "auth.db")
+SECRETS_DIR = os.environ.get("SECRETS_DIR", os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "secrets")))
+os.makedirs(SECRETS_DIR, exist_ok=True)
+DB_PATH = os.path.join(SECRETS_DIR, "auth.db")
 
 LOGGING_SERVICE_URL = os.environ.get("LOGGING_SERVICE_URL", "http://logging:8006/api/logs")
 
@@ -221,7 +221,7 @@ def login():
                 "email": username,
                 "role": role,
                 "status": user_status,
-                "storage_backend": "SQLite (auth_service/data/auth.db)"
+                "storage_backend": "SQLite (auth_service/secrets/auth.db)"
             }
         })
     elif status == "Locked":

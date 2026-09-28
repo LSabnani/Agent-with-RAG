@@ -193,7 +193,15 @@ def conversation_events(conversation_id):
     logs = load_logs()
     events = [l for l in logs if l.get("conversation_id") == conversation_id]
     events.sort(key=lambda x: x.get("timestamp", ""))
-    return jsonify({"conversation_id": conversation_id, "events": events})
+    enriched = []
+    for l in events:
+        e = dict(l)
+        e["event_type"] = l.get("type", "generic")
+        e["target"] = l.get("recipient", "unknown")
+        e["local_time"] = l.get("timestamp", "")
+        e["elapsed_ms"] = l.get("duration_ms", 0)
+        enriched.append(e)
+    return jsonify({"conversation_id": conversation_id, "events": enriched})
 
 @app.route("/api/logs/telemetry", methods=["GET"])
 def get_telemetry():
