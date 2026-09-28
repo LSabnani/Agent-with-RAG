@@ -1,0 +1,135 @@
+services:
+  logging:
+    build:
+      context: ./logging
+      dockerfile: Dockerfile
+    container_name: logging-service
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./logging/logs:/app/logs
+    environment:
+      - PORT=8006
+      - RUNNING_IN_DOCKER=true
+
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./auth_service/data:/app/data
+    environment:
+      - PORT=8001
+      - RUNNING_IN_DOCKER=true
+      - LOGGING_SERVICE_URL=http://logging:8006/api/logs
+    depends_on:
+      - logging
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-embedding
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  doc_rag:
+    build:
+      context: ./doc_RAG
+      dockerfile: Dockerfile
+    container_name: doc-rag-service
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./doc_RAG/chroma:/app/chroma
+    environment:
+      - PORT=8003
+      - RUNNING_IN_DOCKER=true
+      - OLLAMA_URL=http://ollama:11434
+      - AUTH_SERVICE_URL=http://auth_service:8001/api/auth/validate_key
+      - LOGGING_SERVICE_URL=http://logging:8006/api/logs
+    depends_on:
+      - logging
+      - auth_service
+      - ollama
+
+  tools:
+    build:
+      context: ./tools
+      dockerfile: Dockerfile
+    container_name: tools-service
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./tools/data:/app/data
+    environment:
+      - PORT=8005
+      - RUNNING_IN_DOCKER=true
+      - AUTH_SERVICE_URL=http://auth_service:8001/api/auth/validate_key
+      - LOGGING_SERVICE_URL=http://logging:8006/api/logs
+    depends_on:
+      - logging
+      - auth_service
+
+  agents:
+    build:
+      context: ./agents
+      dockerfile: Dockerfile
+    container_name: agents-service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./agents/secrets:/app/secrets
+      - ./skills:/skills:ro
+    environment:
+      - PORT=8002
+      - RUNNING_IN_DOCKER=true
+      - DOC_RAG_URL=http://doc_rag:8003
+      - TOOLS_URL=http://tools:8005
+      - LOGGING_URL=http://logging:8006
+      - SKILLS_DIR=/skills
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemma-4-26b-a4b-it}
+    depends_on:
+      - logging
+      - doc_rag
+      - tools
+
+  web_ui:
+    build:
+      context: ./web_ui
+      dockerfile: Dockerfile
+    container_name: web-ui-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./web_ui/secrets:/app/secrets
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PORT=8000
+      - RUNNING_IN_DOCKER=true
+      - AUTH_SERVICE_URL=http://auth_service:8001
+      - AGENTS_URL=http://agents:8002
+      - DOC_RAG_URL=http://doc_rag:8003
+      - TOOLS_URL=http://tools:8005
+      - LOGGING_URL=http://logging:8006
+      - OLLAMA_URL=http://ollama:11434
+    depends_on:
+      - logging
+      - auth_service
+      - agents
+      - doc_rag
+      - tools
+
+volumes:
+  ollama_data:

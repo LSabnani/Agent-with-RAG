@@ -1,0 +1,858 @@
+[
+  {
+    "id": "log_1790570442000_1a9c",
+    "timestamp": "2026-09-28T04:40:42.000369+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790570456428_2dae",
+    "timestamp": "2026-09-28T04:40:56.428612+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790570540822_6ea8",
+    "timestamp": "2026-09-28T04:42:20.822376+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790570559882_be42",
+    "timestamp": "2026-09-28T04:42:39.882220+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790570750530_9126",
+    "timestamp": "2026-09-28T04:45:50.530034+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790571615587_fc0e",
+    "timestamp": "2026-09-28T05:00:15.584976+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790571615592_875a",
+    "timestamp": "2026-09-28T05:00:15.590632+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_69be5c228f0d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:00:15.590619+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790571615600_7b40",
+    "timestamp": "2026-09-28T05:00:15.598353+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_69be5c228f0d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:00:15.598337+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790571620886_d380",
+    "timestamp": "2026-09-28T05:00:20.879833+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Passwords & API keys",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_69be5c228f0d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:00:20.879815+00:00",
+      "page_name": "Passwords & API keys"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572049672_a8e2",
+    "timestamp": "2026-09-28T05:07:29.666436+00:00",
+    "type": "api_key_generation",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "Generated API key 'RAG'",
+    "payload": {
+      "key_name": "RAG",
+      "containers": [
+        "doc_rag"
+      ],
+      "access_levels": [
+        "Write"
+      ]
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572197591_38d6",
+    "timestamp": "2026-09-28T05:09:57.586928+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Audit Logs & Events",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_69be5c228f0d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:09:57.586906+00:00",
+      "page_name": "Audit Logs & Events"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572201929_3fac",
+    "timestamp": "2026-09-28T05:10:01.922806+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Passwords & API keys",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_69be5c228f0d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:10:01.922765+00:00",
+      "page_name": "Passwords & API keys"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572294879_114a",
+    "timestamp": "2026-09-28T05:11:34.876613+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572294886_166a",
+    "timestamp": "2026-09-28T05:11:34.883678+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_69be5c228f0d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:11:34.883648+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572319883_5214",
+    "timestamp": "2026-09-28T05:11:59.881357+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572319888_dd56",
+    "timestamp": "2026-09-28T05:11:59.886846+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_a8b52d1daa07",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:11:59.886832+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572319896_573f",
+    "timestamp": "2026-09-28T05:11:59.894787+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_a8b52d1daa07",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:11:59.894774+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572368300_301d",
+    "timestamp": "2026-09-28T05:12:48.294965+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572368312_b7da",
+    "timestamp": "2026-09-28T05:12:48.307641+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_a8b52d1daa07",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:12:48.307598+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572373451_b2c7",
+    "timestamp": "2026-09-28T05:12:53.446441+00:00",
+    "type": "user_login",
+    "invoker": "test",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Failed",
+    "payload": {
+      "username": "test",
+      "status": "Failed",
+      "role": "User",
+      "ip": "172.20.0.7"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572387940_f203",
+    "timestamp": "2026-09-28T05:13:07.938618+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572387944_bbdd",
+    "timestamp": "2026-09-28T05:13:07.942750+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_951c284d8260",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:13:07.942738+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572387953_5845",
+    "timestamp": "2026-09-28T05:13:07.951587+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_951c284d8260",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:13:07.951573+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572449891_5b8a",
+    "timestamp": "2026-09-28T05:14:09.885750+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572449905_ce8e",
+    "timestamp": "2026-09-28T05:14:09.899541+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_951c284d8260",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:09.899497+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572453350_d462",
+    "timestamp": "2026-09-28T05:14:13.348335+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572453354_ecb6",
+    "timestamp": "2026-09-28T05:14:13.353067+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_afa8384c63d8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:13.353052+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572453362_9fdb",
+    "timestamp": "2026-09-28T05:14:13.360882+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_afa8384c63d8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:13.360867+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572455580_6a00",
+    "timestamp": "2026-09-28T05:14:15.574816+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572455594_f0a7",
+    "timestamp": "2026-09-28T05:14:15.589235+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_afa8384c63d8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:15.589188+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572478852_d7df",
+    "timestamp": "2026-09-28T05:14:38.850892+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572478857_0913",
+    "timestamp": "2026-09-28T05:14:38.855558+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_50a066916379",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:38.855545+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572478865_87ab",
+    "timestamp": "2026-09-28T05:14:38.863796+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_50a066916379",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:38.863785+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572494653_c668",
+    "timestamp": "2026-09-28T05:14:54.648614+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790572494668_f352",
+    "timestamp": "2026-09-28T05:14:54.663203+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_50a066916379",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:14:54.663155+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790573470732_cb0d",
+    "timestamp": "2026-09-28T05:31:10.730641+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790573470736_1498",
+    "timestamp": "2026-09-28T05:31:10.735270+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_da5b79e7850a",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:31:10.735257+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790573470745_c170",
+    "timestamp": "2026-09-28T05:31:10.743515+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_da5b79e7850a",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:31:10.743480+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790573474944_b680",
+    "timestamp": "2026-09-28T05:31:14.937965+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Audit Logs & Events",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_da5b79e7850a",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:31:14.937933+00:00",
+      "page_name": "Audit Logs & Events"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790573484265_cdf1",
+    "timestamp": "2026-09-28T05:31:24.259890+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Container Mgr",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_da5b79e7850a",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:31:24.259850+00:00",
+      "page_name": "Container Mgr"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790574583193_2b7b",
+    "timestamp": "2026-09-28T05:49:43.188049+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Passwords & API keys",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_da5b79e7850a",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:49:43.188033+00:00",
+      "page_name": "Passwords & API keys"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  }
+]

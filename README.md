@@ -1,172 +1,156 @@
-# Agent With RAG
+# Agent With RAG (Enterprise Autonomous Architecture)
 
-An enterprise-grade AI Agent management application featuring Retrieval-Augmented Generation (RAG) capabilities, local vector embeddings, Google AI Studio integration, dual agent orchestrators (Custom Multi-Turn Agent and Google ADK LlmAgent), live inference telemetry, and comprehensive audit event tracing.
-
----
-
-## 🌟 Features
-
-- **Dual Vector Store Architecture**: ChromaDB persistent vector database maintaining distinct collections for:
-  - **Skills Store (`skills_store`)**: Indexes domain procedural skill metadata (`name` + `description`) and complete `SKILL.md` definitions.
-  - **Documents Store (`documents_store`)**: Indexes partitioned domain documents with chunk deduplication and document-level lifecycle management.
-- **Local Ollama Vectorization**: Seamless local vector embedding generation (`bge-m3`, `nomic-embed-text`, `all-minilm`, `bge-large`) with automatic daemon lifecycle management.
-- **Google AI Studio Integration**: Dynamic discovery of active text generation models with configurable temperature, token constraints, and custom OpenAI-compatible endpoint support. Default model: `DEFAULT_LLM_MODEL=gemma-4-26b-a4b-it`.
-- **Dual Autonomous Agents**:
-  - **Custom Multi-Turn Agent**: ReAct-style loop evaluating domain skills, executing procedural tools dynamically via structured JSON actions, observing tool results, and synthesizing verified final answers up to configurable `max_turns`.
-  - **Google ADK Agent**: Google ADK `LlmAgent` and runner executing bound Python procedural tool callables.
-- **Domain Procedural Skills**:
-  1. `time-weather-skill`: Real-time weather conditions and local time via Open-Meteo (no API key required).
-  2. `person-information-skill`: Personnel search over 20 flat-file records in `registry.csv` by name, city, country, or job title.
-  3. `stock-market-skill`: Top equity gainers (highest % increase) and losers (lowest % decrease) tracking.
-  4. `document-search-skill`: Semantic document chunk retrieval from ChromaDB.
-- **Rich 4-Page Dark-Themed GUI**:
-  1. **Chat & Knowledge Synthesis**: Interactive chat with expandable "Show Logs" detail box featuring component bubbles (Agent, Tools, RAG, Skills) and retrieved evidence cards.
-  2. **Vector DB Ingestion**: URL or directory ingestion with sample links, collapsible chunking settings, document deletion, and safe embedder model switching.
-  3. **Telemetry**: Line charts for throughput and token velocity alongside TTFT, ITL, TPS, and TPOT metrics.
-  4. **Audit Log & Event**: 7-row scrollable conversation selector and event drill-down inspector with full unredacted JSON viewer.
+An enterprise multi-container web application and autonomous AI Agent platform with dynamic Retrieval-Augmented Generation (RAG), FastMCP tool orchestration, ChromaDB vector storage, Ollama local embedding, and comprehensive telemetry/audit logging.
 
 ---
 
-## 📂 Directory Architecture
+## 1. What This System Does
 
-```
-Agent-with-RAG/
-├── database/                   # Persistent ChromaDB storage & log.json
-│   └── log.json
-├── sample_docs/                # Domain documents for RAG
-│   ├── agent_and_rag.md
-│   ├── company_marketing_strategy.md
-│   └── financial_report.md
-├── services/                   # Modular backend service layer
-│   ├── __init__.py
-│   ├── ollama_service.py       # Ollama daemon lifecycle & embeddings
-│   ├── vector_store.py         # Dual ChromaDB collections
-│   ├── llm_service.py          # Google AI Studio API & Custom endpoints
-│   ├── skill_manager.py        # Skill scanner & dynamic tool runner
-│   ├── agent_orchestrator.py   # Custom Multi-Turn Agent
-│   ├── google_adk_agent.py     # Google ADK LlmAgent
-│   ├── telemetry_service.py    # Metric aggregation & timeseries
-│   └── log_service.py          # Audit event logger with key redaction
-├── skills/                     # Domain procedural skills
-│   ├── time-weather-skill/
-│   │   ├── SKILL.md
-│   │   └── scripts/env_tools.py
-│   ├── person-information-skill/
-│   │   ├── SKILL.md
-│   │   ├── data/registry.csv
-│   │   └── scripts/person_search.py
-│   ├── stock-market-skill/
-│   │   ├── SKILL.md
-│   │   └── scripts/stock_search.py
-│   └── document-search-skill/
-│       ├── SKILL.md
-│       └── scripts/doc_search.py
-├── static/
-│   ├── css/style.css           # Modern glassmorphism dark theme
-│   ├── js/app.js               # Reactive UI controller
-│   ├── js/chart.umd.min.js     # Offline Chart.js library
-│   └── images/                 # Animated GIF icons
-├── templates/
-│   └── index.html              # Single-page application shell
-├── tests/                      # Pytest automated test suite
-├── app.py                      # Core Orchestrator & REST endpoints
-├── config.py                   # Centralized configuration & environment loader
-├── requirements.txt            # Package declarations
-└── README.md                   # System documentation & user guide
-```
+* **Autonomous Multi-Turn Reasoning:** Executes goal-oriented conversational workflows using either a **Custom Agent** (with tool execution loops up to a configurable turn limit) or a **Google ADK Agent** (via Google AI Studio GenAI SDK).
+* **Dynamic Skill & Tool Invocation:** Intercepts structured JSON tool calls from LLMs and invokes procedural FastMCP tools (employee registry search, stock market analysis, weather/time lookup, document retrieval).
+* **Dual-Collection Vector Store (`doc_RAG`):** Powered by ChromaDB and local Ollama embeddings (`nomic-embed-text`, `bge-m3`) across two isolated collections:
+  * `skill`: Semantic discovery and prompt augmentation for procedural skills.
+  * `document`: High-precision chunked semantic document retrieval.
+* **Granular Authentication & RBAC (`auth_service`):** SQLite-backed credential and API key management with role-based access control (`Admin`, `Editor`, `User`), token expiration, and inter-container permission scoping.
+* **Real-Time Container Topology (`Container Mgr`):** Visual interactive system architecture diagram with live CPU/RAM metrics, health status, and administrative container lifecycle operations (`Start`, `Stop`, `Restart`, `Shutdown All`).
+* **Comprehensive Telemetry & Audit Logs (`logging`):** Centralized append-only JSON logging capturing full raw payloads, latency distributions (TTFT, ITL, TPS, TPOT), and user conversation histories.
 
 ---
 
-## ⚙️ Installation
+## 2. Architecture & Container Port Assignments
 
-### 1. Prerequisites
-- **Python 3.10+** (Python 3.14 recommended)
-- **Ollama**: Installed locally on system (`curl -fsSL https://ollama.com/install.sh | sh`)
-- **Google AI Studio API Key**: Required for Gemini / Gemma models.
+The platform runs as 7 decoupled microservices orchestrated via Docker Compose:
 
-### 2. Install Python Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configure Environment
-Create or edit `.env` in the root directory:
-```bash
-GEMINI_API_KEY=your_google_ai_studio_key_here
-PORT=8005
-```
+| Service | Directory | TCP Port | Protocol | Purpose |
+|---|---|---|---|---|
+| **Web UI** | `web_ui/` | **8000** | HTTP / Flask | 6-Page responsive web interface & Docker orchestrator |
+| **Auth Service** | `auth_service/` | **8001** | HTTP REST | SQLite authentication, user accounts, and API keys |
+| **Agents** | `agents/` | **8002** | FastMCP (async HTTP) | Custom & Google ADK Agent multi-turn reasoning loops |
+| **Doc & Skills RAG** | `doc_RAG/` | **8003** | FastMCP (async HTTP) | ChromaDB dual collections & chunking pipeline |
+| **Ollama Embeddings** | `ollama` | **11434** | REST API | Official Ollama daemon generating dense vector embeddings |
+| **Tools** | `tools/` | **8005** | FastMCP (async HTTP) | Employee CSV registry, stock market, and weather tools |
+| **Logging** | `logging/` | **8006** | HTTP REST | Centralized audit logs, conversation history, and telemetry |
 
 ---
 
-## 🚀 Starting the Services
+## 3. Installation & Prerequisites
 
-Launch the application directly via Python:
-```bash
-python3 app.py
-```
-Or specify a custom port overriding `.env`:
-```bash
-python3 app.py --port 8005
-```
+### Prerequisites
+* **Docker & Docker Compose:** Docker Engine 24+ and Docker Compose v2.
+* **Ollama (Optional for Host Mode):** If running outside Docker, Ollama listening on `127.0.0.1:11434`.
+* **Google Gemini API Key:** Required for Gemini model synthesis via Google AI Studio.
 
-### What Happens on Startup:
-1. The app checks whether the local **Ollama** service is running on port 11434. If not running, it automatically starts `ollama serve` in the background.
-2. The `skills/` folder is scanned, and all procedural skills are embedded and indexed into the ChromaDB `skills_store`.
-3. If the document database is empty, sample documents from `sample_docs/` are automatically chunked, deduplicated, and ingested.
-4. The web server binds to the configured port (`http://127.0.0.1:8005`).
-
----
-
-## 🛑 Shutting Down the Services
-
-### Option A: Via GUI (Recommended)
-1. In the web interface, click the light red **"Shutdown"** button at the top-right corner.
-2. A confirmation dialog appears. Type the confirmation phrase:
+### Setup Environment
+1. Copy or edit `.env` in the repository root:
+   ```bash
+   cp .env.example .env
    ```
-   Shutdown the service
+2. Configure your parameters in `.env`:
+   ```ini
+   PORT=8000
+   GEMINI_API_KEY=your_google_ai_studio_api_key_here
+   GEMINI_MODEL=gemma-4-26b-a4b-it
+   FLASK_SECRET_KEY=change_this_to_a_secure_random_key
    ```
-3. Click **"Confirm"**. The application will:
-   - Terminate the web server process cleanly.
-   - Stop the Ollama service **only if** this application started it on startup (preserving instances that were already running).
-
-### Option B: Terminal
-Press `Ctrl+C` in the running terminal. The registered shutdown handler will clean up background processes.
 
 ---
 
-## 📖 User Guide
+## 4. How to Start All Services
 
-### 1. Chat & Knowledge Synthesis (Page 1)
-- **Model Configuration**: Select any active text-generation model discovered from Google AI Studio, or select **Custom Model** to specify an OpenAI-compatible HTTP endpoint.
-- **Agent Selection**: Choose between **Custom Agent** (multi-turn tool loop) and **Google ADK Agent** (Google ADK `LlmAgent`).
-- **Skill Selection**: Select **Vector Store** (default with configurable cosine similarity threshold), **LLM Selected**, or specify an individual skill.
-- **Interactive Chat**: Type any query or select a quick prompt.
-- **Inspection**:
-  - Click **"Show Logs"** anchored at the top right of any agent response detail box to inspect intermediate steps, timing, and raw component outputs.
-  - View the **Retrieved Context Evidence** card on the right to inspect exact chunks retrieved from the vector database, grouped by source document.
-
-### 2. Vector DB Ingestion (Page 2)
-- **Populate Database**: Enter a web URL or local directory/file path, configure chunk size and overlap, and click **"Populate Vector Database"**. Chunks are deduplicated automatically.
-- **Manage Documents**: Inspect ingested documents in the table and delete individual documents using the **Delete** button.
-- **Switch Embedder Model**: Select a new embedding model from the dropdown. Follow the confirmation modal prompt (`Change model and delete data`) to pull the model, clear outdated vectors, and re-index skills.
-- **Update Skills Database**: Click to scan `skills/` and load new skills into ChromaDB without re-indexing existing ones.
-
-### 3. Telemetry (Page 3)
-- Inspect real-time request counts (prompts, responses, errors) and token velocity (input/output tokens).
-- Adjust aggregation intervals (1 min, 15 min, 1 hr, 1 day) and time ranges (Last hr, 1 day, Week, Month, Custom date range).
-- Review latency diagnostics: **TTFT** (Time to First Token), **ITL** (Inter-Token Latency), **TPS** (Tokens Per Second), and **TPOT** (Time Per Output Token).
-
-### 4. Audit Log & Event (Page 4)
-- **User Conversations Table**: Select any conversation row (scrollable up to 7 visible rows) to highlight it.
-- **Events Table**: Inspect all individual events recorded during the selected conversation (requests, responses, model calls, vector queries, tool executions).
-- **Payload Inspector**: Click on any event row to open a modal dialog showing unredacted JSON payloads formatted for human review.
-- **Clear Logs**: Click **"Clear Logs"** and confirm to reset `database/log.json`.
-
----
-
-## 🧪 Running Automated Tests
-
-Run the complete pytest test suite:
+### Using Docker Compose (Recommended Production Mode)
+Run the following command from the repository root:
 ```bash
-pytest tests/ -v
+docker compose up -d --build
 ```
+This automatically builds all 6 custom Python microservices, pulls the official Ollama container, configures isolated network bridges, and mounts host persistence volumes.
+
+### Local Development / Native Mode (Without Docker)
+You can also launch each microservice directly in Python:
+```bash
+# Terminal 1: Logging Container
+cd logging && python3 server.py
+
+# Terminal 2: Auth Service
+cd auth_service && python3 server.py
+
+# Terminal 3: Tools FastMCP Server
+cd tools && python3 server.py
+
+# Terminal 4: Doc & Skills RAG Server
+cd doc_RAG && python3 server.py
+
+# Terminal 5: Agents FastMCP Server
+cd agents && python3 server.py
+
+# Terminal 6: Web UI
+cd web_ui && python3 app.py
+```
+
+Access the Web Console at: **`http://localhost:8000`**
+
+---
+
+## 5. How to Shutdown All Services
+
+* **Via the Web UI (Any Page):** Click the light red **🛑 Shutdown** button in the top right header, type `Shutdown the services`, and confirm.
+* **Via Container Mgr (Admin Only):** Navigate to the **Container Mgr** tab, click **Shutdown All**, type `Shutdown System`, and confirm.
+* **Via Terminal (Docker Compose):**
+  ```bash
+  docker compose down
+  ```
+
+---
+
+## 6. User Guide: Exploring the 6 Console Pages
+
+### Initial Login
+1. On opening `http://localhost:8000`, a sign-in modal prompts for credentials.
+2. Default initial seed credentials:
+   * **Username:** `admin`
+   * **Password:** `admin123`
+3. Click **Ok** to authenticate and load the main console.
+
+### 🗣️ Page 1: Chat & Knowledge Mgnt
+* **Model Selection:** Choose from active Google AI Studio models or select **Custom Model** to specify an OpenAI-compatible endpoint.
+* **Hyperparameters:** Tune `Temperature` (0.0–2.0) and `Max Tokens`.
+* **Agent Selector:** Toggle between **Custom Agent** and **Google ADK Agent**.
+* **Skill Selector:**
+  * `Vector Store Selects` (Default): Uses ChromaDB skill matching with configurable `Skill Threshold`.
+  * `LLM Selects`: Supplies all skill definitions to the model for cognitive selection.
+  * Direct Skill: Forces execution of a designated skill.
+* **Inspection Bubbles:** Click **Show Logs** on any completed agent response to expand step-by-step component execution bubbles (Agent, Skills, Tools, RAG, LLM).
+* **Retrieved Evidence:** The right card displays semantic chunks retrieved from vector stores matching your query.
+
+### 🛢️ Page 2: VectorDB Mgnt (Editor / Admin Only)
+* **Real-time Statistics:** Monitor total ingested document chunks, unique files, and vector DB size in MB.
+* **Update Skills Database:** Scans the `skills/` directory and synchronizes new `SKILL.md` definitions into the ChromaDB skill collection.
+* **Populate Vector Database:** Enter a URL or local directory path, adjust `Chunk Size` and `Overlap`, and ingest custom files.
+* **Storage Status & Reset:** Inspect active document records, delete individual documents, or trigger a full database reset.
+
+### 📊 Page 3: Telemetry
+* **Throughput & Velocity Graphs:** Track Request Throughput (prompts, responses, errors) and Token Velocity (input and output tokens) across selectable intervals (1 min, 15 min, 1 hr, 1 day) and ranges.
+* **Hardware-Agnostic Latency Metrics:** View calculated Time to First Token (TTFT), Inter-Token Latency (ITL), Tokens Per Second (TPS), and Time Per Output Token (TPOT).
+
+### 📝 Page 4: Audit Logs & Events (Editor / Admin Only)
+* **User Conversations Table:** Browse conversation sessions, user queries, agent types, and event counts.
+* **Events for Conversation Table:** Select any conversation row to view chronologically sorted event traces.
+* **Event Inspector:** Click any event row to open the interactive JSON inspector modal with copyable prompt/response payloads.
+
+### 🚢 Page 5: Container Mgr (Admin Only)
+* **Visual Topology Canvas:** Live drawing illustrating container interconnectivity and runtime state (light green for active, light red for stopped).
+* **Interactive Node Control:** Click or right-click any container node to inspect port mappings, dependencies, and trigger `Start` or `Stop`.
+* **Global Controls:** Use `Restart All` or `Shutdown All` for bulk orchestration.
+
+### 🔑 Page 6: Passwords & API Keys
+* **Current Account Info:** View your active email, assigned role, and SQLite storage backend path.
+* **Passwords Sub-Tab (Admin Only):** Manage users, update role permissions (`Admin`, `Editor`, `User`), trigger password resets, and view user request activity logs.
+* **API Keys Sub-Tab (Admin Only):** Generate new cryptographically secure API keys scoped to specific containers and access levels (`Read`, `Write`, `Admin`) with automatic 1-year expiration. Edit, delete, or revoke keys at any time.
+
+---
+
+## 7. Sample Skills and Tools Included
+
+1. **`time-weather-skill`:** Real-time weather and local time lookup for any city worldwide using the free Open-Meteo public service.
+2. **`person-information-skill`:** Employee registry lookups across 30 records (`tools/data/employee_database.csv`) by name, city, country, or job title.
+3. **`stock-market-skill`:** Real-time stock queries for top percentage gainers, losers, or equity quotes.
+4. **`document-search-skill`:** Vector search for top-$k$ text chunks from the ingested ChromaDB knowledge store.

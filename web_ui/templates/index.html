@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent With RAG Console</title>
+  <link rel="icon" type="image/gif" href="/static/images/tab-icon.gif" onerror="this.href='/static/images/ai-brain-ani-32.gif'">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="dark-theme">
+  <!-- Top Application Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <img id="appIcon" src="/static/images/app-icon.gif" alt="App Icon" class="app-icon" onerror="this.style.display='none'">
+      <div class="app-title-group">
+        <h1 class="app-title">Agent With RAG</h1>
+        <span class="app-badge">Enterprise Console</span>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <!-- Navigation Tabs (All 6 Pages) -->
+    <nav class="nav-tabs" id="mainNavTabs">
+      <button class="nav-tab active" data-target="page-chat">
+        <span class="tab-icon">🗣️</span>
+        <span class="tab-label">Chat & Knowledge Mgnt</span>
+      </button>
+      <button class="nav-tab" data-target="page-ingest" id="tabVector">
+        <span class="tab-icon">🛢️</span>
+        <span class="tab-label">VectorDB Mgnt</span>
+      </button>
+      <button class="nav-tab" data-target="page-telemetry">
+        <span class="tab-icon">📊</span>
+        <span class="tab-label">Telemetry</span>
+      </button>
+      <button class="nav-tab" data-target="page-audit" id="tabAudit">
+        <span class="tab-icon">📝</span>
+        <span class="tab-label">Audit Logs & Events</span>
+      </button>
+      <button class="nav-tab" data-target="page-containers" id="tabContainers">
+        <span class="tab-icon">🚢</span>
+        <span class="tab-label">Container Mgr</span>
+      </button>
+      <button class="nav-tab" data-target="page-auth" id="tabAuth">
+        <span class="tab-icon">🔑</span>
+        <span class="tab-label">Passwords & API keys</span>
+      </button>
+    </nav>
+
+    <!-- Header Actions & Health Status -->
+    <div class="header-right">
+      <div class="user-header-info" id="userHeaderInfo">
+        <span class="user-email-text" id="headerUserEmail">admin</span>
+        <span class="user-profile-badge badge-admin" id="headerUserRole">Admin</span>
+        <button id="btnLogout" class="btn-logout" title="Sign out of console">Logout</button>
+      </div>
+
+      <div class="status-box" id="globalStatusBox" title="Click to view detailed health">
+        <span class="status-dot online" id="statusDot"></span>
+        <span class="status-text" id="statusSummary">Agent: Online</span>
+        <div class="status-tooltip" id="statusTooltip">
+          <div class="tooltip-item"><span>Agent:</span> <strong id="tooltipAgent">Healthy</strong></div>
+          <div class="tooltip-item"><span>Ollama:</span> <strong id="tooltipOllama">Running</strong></div>
+          <div class="tooltip-item"><span>Model:</span> <strong id="tooltipEmbedder">nomic-embed-text</strong></div>
+          <div class="tooltip-item"><span>Vector DB:</span> <strong id="tooltipVector">Connected</strong></div>
+          <div class="tooltip-item"><span>LLM Provider:</span> <strong id="tooltipLlm">Configured</strong></div>
+        </div>
+      </div>
+      <button id="btnShutdown" class="btn-shutdown" title="Terminate application and services">
+        <span class="icon">🛑</span> Shutdown
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Multi-Page Container -->
+  <main class="app-content">
+
+    <!-- ================================================================= -->
+    <!-- PAGE 1: Chat & Knowledge Synthesis                               -->
+    <!-- ================================================================= -->
+    <section id="page-chat" class="page-view active">
+      <!-- Page Sub-Header Controls -->
+      <div class="page-subheader">
+        <div class="page-title-area">
+          <h2 class="page-heading"><span class="heading-icon">💬</span> Chat & Knowledge Synthesis</h2>
+        </div>
+        <div class="page-controls-area">
+          <!-- Max Tokens -->
+          <div class="control-box">
+            <label for="chatMaxTokens"><span class="control-icon">🔤</span> Max Tokens</label>
+            <input type="number" id="chatMaxTokens" value="4096" min="128" max="65536" step="128">
+          </div>
+
+          <!-- Temperature -->
+          <div class="control-box">
+            <label for="chatTemperature"><span class="control-icon">🌡️</span> Temperature</label>
+            <input type="number" id="chatTemperature" value="0.7" min="0.0" max="2.0" step="0.1">
+          </div>
+
+          <!-- Model Choice Dropdown -->
+          <div class="control-box">
+            <label for="chatModel"><span class="control-icon">🧠</span> Model</label>
+            <select id="chatModel">
+              <option value="gemma-4-26b-a4b-it">gemma-4-26b-a4b-it (Default)</option>
+              <option value="Custom Model">Custom Model (Endpoint)</option>
+            </select>
+          </div>
+
+          <!-- Custom Model Endpoint Field (Conditional) -->
+          <div class="control-box hidden" id="customEndpointBox">
+            <label for="customEndpoint"><span class="control-icon">🔗</span> Custom API Endpoint</label>
+            <input type="text" id="customEndpoint" value="http://127.0.0.1:8000/v1/chat/completions" placeholder="http://127.0.0.1:8000/v1/chat/completions">
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-Card Split Layout -->
+      <div class="split-cards-grid">
+        <!-- Left Card: Chat with the Agent -->
+        <div class="glass-card chat-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="card-icon">🤖</span> Chat with the Agent
+            </div>
+            <div class="card-action-group">
+              <div class="header-control">
+                <label for="agentChoice"><span class="control-icon">🤖</span> Agent:</label>
+                <select id="agentChoice">
+                  <option value="Custom Agent" selected>Custom Agent</option>
+                  <option value="Google ADK Agent">Google ADK LlmAgent</option>
+                </select>
+              </div>
+              <div class="header-control">
+                <label for="chatMaxTurns"><span class="control-icon">🔄</span> Max Turns:</label>
+                <input type="number" id="chatMaxTurns" value="3" min="1" max="10">
+              </div>
+            </div>
+          </div>
+
+          <!-- Second Row Parameters -->
+          <div class="chat-param-row">
+            <div class="param-item">
+              <label for="chatSkills"><span class="param-icon">⚡</span> Skill Selector:</label>
+              <select id="chatSkills">
+                <option value="Vector Store Selects" selected>Vector Store Selects (Default)</option>
+                <option value="LLM Selects">LLM Selects</option>
+                <!-- Dynamic Skills populated by JS -->
+              </select>
+            </div>
+            <div class="param-item" id="skillThresholdBox">
+              <label for="chatSkillThreshold"><span class="param-icon">🎯</span> Threshold:</label>
+              <input type="number" id="chatSkillThreshold" value="0.2" min="0.0" max="1.0" step="0.05">
+            </div>
+            <div class="param-item param-item-right">
+              <label for="chatRagChunks"><span class="param-icon">📑</span> Max RAG Chunks:</label>
+              <select id="chatRagChunks">
+                <option value="1">1 Chunk</option>
+                <option value="3">3 Chunks</option>
+                <option value="5" selected>5 Chunks</option>
+                <option value="10">10 Chunks</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Chat Conversation Scroll Area -->
+          <div class="chat-messages-container" id="chatMessages">
+            <div class="chat-welcome">
+              <div class="welcome-icon">💡</div>
+              <h3>AI Agent with RAG Ready</h3>
+              <p>Ask a question about the weather, personnel records, stock movements, or search our private knowledge documents.</p>
+              <div class="quick-prompts">
+                <button class="btn-chip" data-prompt="What is the current weather and local time in Tokyo?">🌤️ Weather in Tokyo</button>
+                <button class="btn-chip" data-prompt="Find Lucas Dubois in the person registry and show his job title.">👤 Lucas Dubois</button>
+                <button class="btn-chip" data-prompt="Which stocks have the highest percentage increase today?">📈 Top Gainers</button>
+                <button class="btn-chip" data-prompt="What is Agentic RAG and how does it compare to classic RAG?">📚 Agentic RAG</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Message Input Box -->
+          <div class="chat-input-container">
+            <textarea id="chatInput" rows="2" placeholder="Type your question here... (Press Enter to send, Shift+Enter for newline)"></textarea>
+            <button id="btnSendMessage" class="btn-send" title="Send Message">
+              <span class="send-icon">🚀</span>
+              <span class="send-text">Send</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Card: Retrieved Context Evidence -->
+        <div class="glass-card evidence-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="card-icon">🔍</span> Retrieved Context Evidence
+            </div>
+            <div class="card-action-group">
+              <div class="mini-control">
+                <label for="docThresholdInput">Doc Threshold:</label>
+                <input type="number" id="docThresholdInput" value="0.3" min="0.0" max="1.0" step="0.05">
+              </div>
+            </div>
+          </div>
+
+          <div class="evidence-body" id="evidenceContainer">
+            <div class="empty-placeholder">
+              <span class="empty-icon">📂</span>
+              <p>No retrieval context yet. Evidence from the skills store and document vector store will appear here grouped by source document.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 2: Vector DB Ingestion                                      -->
+    <!-- ================================================================= -->
+    <section id="page-ingest" class="page-view">
+      <!-- Sub-Header Area -->
+      <div class="page-subheader">
+        <div class="page-title-area">
+          <h2 class="page-heading"><span class="heading-icon">📥</span> Vector DB Ingestion</h2>
+        </div>
+        <div class="page-controls-area">
+          <!-- Embedder Model Dropdown -->
+          <div class="control-box">
+            <label for="embedderSelect"><span class="control-icon">🧬</span> Active Embedder</label>
+            <select id="embedderSelect">
+              <option value="bge-m3">bge-m3 (Active)</option>
+              <option value="nomic-embed-text">nomic-embed-text</option>
+              <option value="all-minilm">all-minilm</option>
+              <option value="bge-large">bge-large</option>
+            </select>
+          </div>
+
+          <!-- Update Skills Database Button -->
+          <button id="btnUpdateSkills" class="btn-secondary">
+            <span class="icon">🔄</span> Update Skills Database
+          </button>
+
+          <!-- Ingestion Statistics Pill -->
+          <div class="stats-pill" id="ingestStatsPill">
+            <div class="stat-pill-item"><span class="stat-val" id="statChunksCount">0</span> Chunks</div>
+            <div class="stat-pill-divider"></div>
+            <div class="stat-pill-item"><span class="stat-val" id="statDocsCount">0</span> Documents</div>
+            <div class="stat-pill-divider"></div>
+            <div class="stat-pill-item"><span class="stat-val" id="statDbSize">0.0</span> MB</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Two Half-Width Cards -->
+      <div class="split-cards-grid half-width-grid">
+        <!-- Left Card: Populate Vector Database -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="card-icon">⚡</span> Populate Vector Database
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="section-desc">Create or extend the private ChromaDB vector database from web URLs or local directories.</p>
+            
+            <!-- Sample URL buttons -->
+            <div class="sample-urls-group">
+              <label class="field-label">Sample Web Documents:</label>
+              <div class="sample-url-buttons">
+                <button class="btn-sample-url" data-url="sample_docs/agent_and_rag.md">Agent & RAG Doc</button>
+                <button class="btn-sample_url" data-url="sample_docs/company_marketing_strategy.md">Marketing Strategy</button>
+                <button class="btn-sample-url" data-url="sample_docs/financial_report.md">Financial Report</button>
+                <button class="btn-sample-url" data-url="https://en.wikipedia.org/wiki/Retrieval-augmented_generation">Wikipedia RAG</button>
+                <button class="btn-sample-url" data-url="sample_docs/">All sample_docs/</button>
+              </div>
+            </div>
+
+            <!-- Ingestion Input -->
+            <div class="form-group">
+              <label for="ingestSourceInput" class="field-label">URL or Local Path:</label>
+              <input type="text" id="ingestSourceInput" class="input-text" placeholder="https://example.com/article or sample_docs/file.md">
+            </div>
+
+            <!-- Collapsible Advanced Chunking Parameters -->
+            <div class="collapsible-card" id="chunkingCard">
+              <button type="button" class="collapsible-header" id="btnToggleChunking">
+                <span class="collapsible-title"><span class="icon">⚙️</span> Advanced Chunking Parameters</span>
+                <span class="collapsible-arrow">▼</span>
+              </button>
+              <div class="collapsible-content hidden" id="chunkingContent">
+                <div class="chunk-inputs-grid">
+                  <div class="form-group">
+                    <label for="inputChunkSize" class="field-label">Chunk Size (characters):</label>
+                    <input type="number" id="inputChunkSize" value="1000" min="100" max="8000" step="100">
+                  </div>
+                  <div class="form-group">
+                    <label for="inputChunkOverlap" class="field-label">Overlap (characters):</label>
+                    <input type="number" id="inputChunkOverlap" value="200" min="0" max="2000" step="50">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="action-footer">
+              <button id="btnPopulateDb" class="btn-primary">
+                <span class="icon">📥</span> Populate Vector Database
+              </button>
+              <span class="ingest-spinner hidden" id="ingestSpinner"><span class="spinner-icon">⏳</span> Ingesting content...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Card: Vector Storage Status -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="card-icon">🗄️</span> Vector Storage Status
+            </div>
+            <div class="card-action-group">
+              <button id="btnResetDb" class="btn-danger-outline">
+                <span class="icon">🗑️</span> Reset DB
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="storage-status-banner" id="storageStatusBanner">
+              <span class="status-indicator-idle">Idle (Ready)</span>
+            </div>
+
+            <!-- Scrollable Ingested Documents List -->
+            <div class="table-scroll-container">
+              <table class="data-table" id="ingestedDocsTable">
+                <thead>
+                  <tr>
+                    <th>Document Name</th>
+                    <th>Chunks</th>
+                    <th>Characters</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ingestedDocsTbody">
+                  <tr><td colspan="4" class="text-center text-muted">No documents ingested.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Card: Available Embedding Models -->
+      <div class="glass-card full-width-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">🧬</span> Available Embedding Models
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-scroll-container">
+            <table class="data-table" id="availableModelsTable">
+              <thead>
+                <tr>
+                  <th>Model Name</th>
+                  <th>Dimensions</th>
+                  <th>Context Window</th>
+                  <th>Size</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="availableModelsTbody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 3: Telemetry                                                -->
+    <!-- ================================================================= -->
+    <section id="page-telemetry" class="page-view">
+      <div class="page-subheader">
+        <div class="page-title-area">
+          <h2 class="page-heading"><span class="heading-icon">📊</span> Telemetry & Inference Metrics</h2>
+        </div>
+        <div class="page-controls-area">
+          <!-- Model Filter -->
+          <div class="control-box">
+            <label for="telemetryModelFilter"><span class="control-icon">🔍</span> Filter by Model</label>
+            <select id="telemetryModelFilter">
+              <option value="All Models" selected>All Models</option>
+            </select>
+          </div>
+
+          <!-- Refresh Button -->
+          <button id="btnRefreshTelemetry" class="btn-secondary">
+            <span class="icon">🔄</span> Refresh Telemetry
+          </button>
+        </div>
+      </div>
+
+      <!-- High-Level Metric Tiles -->
+      <div class="metric-tiles-grid">
+        <div class="metric-tile">
+          <div class="metric-label">Total Prompts</div>
+          <div class="metric-value" id="telTotalPrompts">0</div>
+        </div>
+        <div class="metric-tile">
+          <div class="metric-label">Total Responses</div>
+          <div class="metric-value" id="telTotalResponses">0</div>
+        </div>
+        <div class="metric-tile">
+          <div class="metric-label">Total Errors</div>
+          <div class="metric-value text-danger" id="telTotalErrors">0</div>
+        </div>
+        <div class="metric-tile">
+          <div class="metric-label">Total Input Tokens</div>
+          <div class="metric-value" id="telTotalInTokens">0</div>
+        </div>
+        <div class="metric-tile">
+          <div class="metric-label">Total Output Tokens</div>
+          <div class="metric-value" id="telTotalOutTokens">0</div>
+        </div>
+      </div>
+
+      <!-- Top Card: System Throughput & Token Velocity (2 Graphs) -->
+      <div class="glass-card full-width-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">📈</span> System Throughput & Token Velocity
+          </div>
+          <div class="card-action-group">
+            <div class="mini-control">
+              <label for="telIntervalSelect">Interval:</label>
+              <select id="telIntervalSelect">
+                <option value="1 min">1 min</option>
+                <option value="15 min" selected>15 min (Default)</option>
+                <option value="1 hr">1 hr</option>
+                <option value="1 day">1 day</option>
+              </select>
+            </div>
+            <div class="mini-control">
+              <label for="telRangeSelect">Time Range:</label>
+              <select id="telRangeSelect">
+                <option value="Last hr">Last hr</option>
+                <option value="1 day" selected>1 day (Default)</option>
+                <option value="Week">Week</option>
+                <option value="Month">Month</option>
+                <option value="Custom">Custom</option>
+              </select>
+            </div>
+            <div class="custom-date-pickers hidden" id="customDateBoxes">
+              <input type="date" id="telStartDate">
+              <span>to</span>
+              <input type="date" id="telEndDate">
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="charts-double-grid">
+            <!-- Left Plot: Prompts, Responses, Errors -->
+            <div class="chart-wrapper">
+              <h4 class="chart-title">Request Throughput (Prompts / Responses / Errors)</h4>
+              <div class="canvas-container">
+                <canvas id="chartThroughput"></canvas>
+              </div>
+            </div>
+
+            <!-- Right Plot: Input & Output Tokens -->
+            <div class="chart-wrapper">
+              <h4 class="chart-title">Token Velocity (Input & Output Tokens)</h4>
+              <div class="canvas-container">
+                <canvas id="chartTokens"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Card: Other Important Statistic not Available for Low-Performance Computer -->
+      <div class="glass-card full-width-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">⚡</span> Other Important Statistic not Available for Low-Performance Computer
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="advanced-stats-grid">
+            <div class="adv-stat-card">
+              <div class="adv-stat-header">
+                <span class="adv-stat-tag">TTFT</span>
+                <h4>Time to First Token</h4>
+              </div>
+              <div class="adv-stat-value" id="valTtft">0.0 ms</div>
+              <p class="adv-stat-desc">The duration between a user sending a prompt and receiving the very first token. Critical metric for perceived speed in interactive streaming.</p>
+            </div>
+
+            <div class="adv-stat-card">
+              <div class="adv-stat-header">
+                <span class="adv-stat-tag">ITL</span>
+                <h4>Inter-Token Latency</h4>
+              </div>
+              <div class="adv-stat-value" id="valItl">0.0 ms</div>
+              <p class="adv-stat-desc">The average time elapsed between generating each subsequent token during response generation.</p>
+            </div>
+
+            <div class="adv-stat-card">
+              <div class="adv-stat-header">
+                <span class="adv-stat-tag">TPS</span>
+                <h4>Tokens Per Second</h4>
+              </div>
+              <div class="adv-stat-value" id="valTps">0.0 tok/s</div>
+              <p class="adv-stat-desc">The throughput speed of model generation measured as output tokens produced per second.</p>
+            </div>
+
+            <div class="adv-stat-card">
+              <div class="adv-stat-header">
+                <span class="adv-stat-tag">TPOT</span>
+                <h4>Time Per Output Token</h4>
+              </div>
+              <div class="adv-stat-value" id="valTpot">0.0 ms/tok</div>
+              <p class="adv-stat-desc">The total generation latency divided by the total count of output tokens returned.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 4: Audit Log & Event                                        -->
+    <!-- ================================================================= -->
+    <section id="page-audit" class="page-view">
+      <div class="page-subheader">
+        <div class="page-title-area">
+          <h2 class="page-heading"><span class="heading-icon">📜</span> Audit Log & Event</h2>
+        </div>
+        <div class="page-controls-area">
+          <button id="btnClearLogs" class="btn-danger-outline">
+            <span class="icon">🗑️</span> Clear Logs
+          </button>
+          <button id="btnRefreshLogs" class="btn-secondary">
+            <span class="icon">🔄</span> Refresh
+          </button>
+
+          <!-- Audit Stats Pill -->
+          <div class="stats-pill">
+            <div class="stat-pill-item"><span class="stat-val" id="auditTotalPrompts">0</span> Prompts</div>
+            <div class="stat-pill-divider"></div>
+            <div class="stat-pill-item"><span class="stat-val" id="auditModelCalls">0</span> Model Calls</div>
+            <div class="stat-pill-divider"></div>
+            <div class="stat-pill-item"><span class="stat-val" id="auditOllamaEmbeds">0</span> Ollama Embeds</div>
+            <div class="stat-pill-divider"></div>
+            <div class="stat-pill-item"><span class="stat-val" id="auditAvgLatency">0.0</span> ms Latency</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Table: User Conversations -->
+      <div class="glass-card full-width-card mb-4">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">💬</span> User Conversations (Select a row to inspect associated events)
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-scroll-container conversation-table-scroll">
+            <table class="data-table selectable-table" id="conversationsTable">
+              <thead>
+                <tr>
+                  <th>Timestamp (Local)</th>
+                  <th>Conversation ID</th>
+                  <th>User Query</th>
+                  <th>Agent Response</th>
+                  <th>Agent Type</th>
+                  <th>Events</th>
+                </tr>
+              </thead>
+              <tbody id="conversationsTbody">
+                <tr><td colspan="6" class="text-center text-muted">No conversations recorded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Table: Events for Conversation -->
+      <div class="glass-card full-width-card">
+        <div class="card-header">
+          <div class="card-title" id="eventsTableTitle">
+            <span class="card-icon">⚡</span> Events for Conversation: <span class="badge" id="selectedConvBadge">None Selected</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-scroll-container">
+            <table class="data-table" id="eventsTable">
+              <thead>
+                <tr>
+                  <th>Time & Date (Local)</th>
+                  <th>Event Type</th>
+                  <th>Invoker</th>
+                  <th>Target</th>
+                  <th>Short Description</th>
+                </tr>
+              </thead>
+              <tbody id="eventsTbody">
+                <tr><td colspan="5" class="text-center text-muted">Select a conversation row above to view its detailed event trace.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 5: Container Mgr (Admin Only)                                -->
+    <!-- ================================================================= -->
+    <section id="page-containers" class="page-view">
+      <div class="page-subheader">
+        <div class="page-title-area">
+          <h2 class="page-heading"><span class="heading-icon">🚢</span> Container Mgr</h2>
+        </div>
+        <div class="page-controls-area container-mgr-actions">
+          <button id="btnRestartAllContainers" class="btn-restart-all">
+            <span class="icon">🔄</span> Restart All
+          </button>
+          <button id="btnShutdownAllContainers" class="btn-shutdown-all">
+            <span class="icon">🛑</span> Shutdown All
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-card full-width-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">🗺️</span> System Container Topology & Orchestration Architecture
+          </div>
+          <div class="text-muted" style="font-size: 0.82rem;">
+            Click or Right-Click any container node to inspect details, add API keys, or Start/Stop
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="topology-canvas-wrapper" id="topologyWrapper">
+            <svg class="topology-svg" id="topologySvg" viewBox="0 0 1000 480">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                </marker>
+                <marker id="arrow-dash" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                </marker>
+              </defs>
+
+              <!-- Connection Lines -->
+              <!-- User to Web UI -->
+              <line x1="500" y1="45" x2="500" y2="85" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow)" />
+              
+              <!-- Web UI to Agent & Doc_RAG -->
+              <line x1="450" y1="140" x2="320" y2="200" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+              <line x1="550" y1="140" x2="680" y2="200" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+
+              <!-- Agent to Doc_RAG & Tools -->
+              <line x1="390" y1="230" x2="610" y2="230" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow)" />
+              <line x1="320" y1="260" x2="320" y2="330" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrow)" />
+
+              <!-- Doc_RAG to Embedding (Ollama) -->
+              <line x1="680" y1="260" x2="680" y2="330" stroke="#34d399" stroke-width="2" marker-end="url(#arrow)" />
+
+              <!-- Dashed lines to Auth and Logging -->
+              <line x1="250" y1="110" x2="150" y2="170" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow-dash)" />
+              <line x1="750" y1="110" x2="850" y2="170" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow-dash)" />
+              <line x1="250" y1="230" x2="150" y2="230" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow-dash)" />
+              <line x1="750" y1="230" x2="850" y2="230" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow-dash)" />
+              <line x1="250" y1="360" x2="150" y2="270" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow-dash)" />
+              <line x1="750" y1="360" x2="850" y2="270" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow-dash)" />
+
+              <!-- TOP USER NODE -->
+              <g class="topology-user-node" transform="translate(430, 10)">
+                <rect width="140" height="40" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+                <text x="70" y="25" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">👤 End User (Client)</text>
+              </g>
+
+              <!-- CONTAINER NODES -->
+              <!-- 1. Web UI (Port 8000) -->
+              <g class="topology-node node-active" id="node-web_ui" transform="translate(420, 85)" data-name="web_ui">
+                <rect width="160" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="80" y="24" text-anchor="middle" class="node-title">🌐 Web UI</text>
+                <text x="80" y="40" text-anchor="middle" class="node-status">Active • Port 8000</text>
+                <text x="80" y="53" text-anchor="middle" class="node-metric" id="metric-web_ui">CPU: 0.1% | 45 MB</text>
+              </g>
+
+              <!-- 2. Auth Service (Port 8001) -->
+              <g class="topology-node node-active" id="node-auth_service" transform="translate(50, 190)" data-name="auth_service">
+                <rect width="150" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="75" y="24" text-anchor="middle" class="node-title">🔒 Auth Service</text>
+                <text x="75" y="40" text-anchor="middle" class="node-status">Active • Port 8001</text>
+                <text x="75" y="53" text-anchor="middle" class="node-metric" id="metric-auth_service">CPU: 0.1% | 32 MB</text>
+              </g>
+
+              <!-- 3. Agents Container (Port 8002) -->
+              <g class="topology-node node-active" id="node-agents" transform="translate(240, 200)" data-name="agents">
+                <rect width="160" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="80" y="24" text-anchor="middle" class="node-title">🤖 Agents (FastMCP)</text>
+                <text x="80" y="40" text-anchor="middle" class="node-status">Active • Port 8002</text>
+                <text x="80" y="53" text-anchor="middle" class="node-metric" id="metric-agents">CPU: 0.2% | 68 MB</text>
+              </g>
+
+              <!-- 4. Doc & Skills RAG (Port 8003) -->
+              <g class="topology-node node-active" id="node-doc_rag" transform="translate(600, 200)" data-name="doc_rag">
+                <rect width="160" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="80" y="24" text-anchor="middle" class="node-title">📚 Doc & Skills RAG</text>
+                <text x="80" y="40" text-anchor="middle" class="node-status">Active • Port 8003</text>
+                <text x="80" y="53" text-anchor="middle" class="node-metric" id="metric-doc_rag">CPU: 0.2% | 85 MB</text>
+              </g>
+
+              <!-- 5. Tools Container (Port 8005) -->
+              <g class="topology-node node-active" id="node-tools" transform="translate(240, 330)" data-name="tools">
+                <rect width="160" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="80" y="24" text-anchor="middle" class="node-title">🔧 Tools (FastMCP)</text>
+                <text x="80" y="40" text-anchor="middle" class="node-status">Active • Port 8005</text>
+                <text x="80" y="53" text-anchor="middle" class="node-metric" id="metric-tools">CPU: 0.1% | 38 MB</text>
+              </g>
+
+              <!-- 6. Embedding Container (Port 11434) -->
+              <g class="topology-node node-active" id="node-ollama" transform="translate(600, 330)" data-name="ollama">
+                <rect width="160" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="80" y="24" text-anchor="middle" class="node-title">⚡ Ollama Embedder</text>
+                <text x="80" y="40" text-anchor="middle" class="node-status">Active • Port 11434</text>
+                <text x="80" y="53" text-anchor="middle" class="node-metric" id="metric-ollama">CPU: 0.4% | 1.1 GB</text>
+              </g>
+
+              <!-- 7. Logging Container (Port 8006) -->
+              <g class="topology-node node-active" id="node-logging" transform="translate(790, 190)" data-name="logging">
+                <rect width="150" height="60" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2" />
+                <text x="75" y="24" text-anchor="middle" class="node-title">📝 Logging Service</text>
+                <text x="75" y="40" text-anchor="middle" class="node-status">Active • Port 8006</text>
+                <text x="75" y="53" text-anchor="middle" class="node-metric" id="metric-logging">CPU: 0.1% | 29 MB</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- PAGE 6: Passwords & API keys                                      -->
+    <!-- ================================================================= -->
+    <section id="page-auth" class="page-view">
+      <div class="page-subheader">
+        <div class="page-title-area">
+          <h2 class="page-heading"><span class="heading-icon">🔑</span> Passwords & API keys</h2>
+        </div>
+      </div>
+
+      <!-- Current User Profile Card (Visible to all users) -->
+      <div class="glass-card full-width-card mb-4" id="cardUserProfile">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-icon">👤</span> Current User Account Information
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="profile-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+            <div>
+              <label class="text-muted" style="font-size: 0.8rem; display: block;">USER EMAIL</label>
+              <strong id="profileEmail" style="font-size: 1.1rem; color: #ffffff;">admin</strong>
+            </div>
+            <div>
+              <label class="text-muted" style="font-size: 0.8rem; display: block;">ASSIGNED ROLE</label>
+              <span class="user-profile-badge badge-admin" id="profileRole">Admin</span>
+            </div>
+            <div>
+              <label class="text-muted" style="font-size: 0.8rem; display: block;">STORAGE BACKEND</label>
+              <span id="profileStorage" style="color: #38bdf8; font-family: var(--font-mono); font-size: 0.9rem;">SQLite (auth_service/data/auth.db)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Tabs Container (Visible only to Admin) -->
+      <div id="adminAuthSection">
+        <!-- Sub-tabs bar -->
+        <div class="subtabs-bar">
+          <button class="subtab-btn active" data-subtab="subtab-passwords" id="tabBtnPasswords">
+            <span>🛡️</span> Passwords
+          </button>
+          <button class="subtab-btn" data-subtab="subtab-apikeys" id="tabBtnApiKeys">
+            <span>🗝️</span> API Keys
+          </button>
+        </div>
+
+        <!-- Sub-tab 1: Passwords & User Accounts -->
+        <div class="subtab-content active" id="subtab-passwords">
+          <!-- Table 1: All Users -->
+          <div class="glass-card full-width-card mb-4">
+            <div class="card-header">
+              <div class="card-title">
+                <span class="card-icon">👥</span> User Accounts Directory
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="table-scroll-container" style="max-height: 240px; overflow-y: auto;">
+                <table class="data-table" id="usersTable">
+                  <thead>
+                    <tr>
+                      <th>User Email</th>
+                      <th>Date / Time Created</th>
+                      <th>Role</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table 2: User Access & Requests Logs -->
+          <div class="glass-card full-width-card">
+            <div class="card-header">
+              <div class="card-title">
+                <span class="card-icon">📜</span> User Access & Request Activity
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="table-scroll-container" style="max-height: 240px; overflow-y: auto;">
+                <table class="data-table" id="userActivityTable">
+                  <thead>
+                    <tr>
+                      <th>Local Date / Time</th>
+                      <th>User Email</th>
+                      <th>Request Type</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="userActivityTbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-tab 2: API Keys -->
+        <div class="subtab-content" id="subtab-apikeys">
+          <div class="glass-card full-width-card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-title">
+                <span class="card-icon">🗝️</span> Configured Container API Keys
+              </div>
+              <button id="btnOpenAddKeyModal" class="btn-primary" style="padding: 0.4rem 1rem;">
+                <span class="icon">➕</span> Generate New API Key
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="table-scroll-container" style="max-height: 300px; overflow-y: auto;">
+                <table class="data-table" id="apiKeysTable">
+                  <thead>
+                    <tr>
+                      <th>Key Name</th>
+                      <th>Prefix</th>
+                      <th>Created By</th>
+                      <th>Generated Date</th>
+                      <th>Expiry Date</th>
+                      <th>Containers</th>
+                      <th>Access Levels</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="apiKeysTbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =================================================================== -->
+  <!-- MODAL DIALOGS                                                       -->
+  <!-- =================================================================== -->
+
+  <!-- Modal 1: Shutdown Warning Dialog -->
+  <div class="modal-overlay hidden" id="shutdownModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-danger">⚠️</span> Shutdown Application and Services</h3>
+      </div>
+      <div class="modal-body">
+        <p class="modal-alert-text">
+          Warning: This action will shutdown the app and all backend services started by it. All users will be affected by this action.
+        </p>
+        <p>To confirm, please type exactly <strong>Shutdown the service</strong> in the box below:</p>
+        <input type="text" id="shutdownConfirmInput" class="input-text" placeholder="Shutdown the service">
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelShutdown" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmShutdown" class="btn-danger" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Change Embedder Model Stern Warning Dialog -->
+  <div class="modal-overlay hidden" id="changeModelModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-danger">⚠️</span> Change Embedder Model</h3>
+      </div>
+      <div class="modal-body">
+        <p class="modal-alert-text">
+          STERN WARNING: Changing the embedding model will <strong>delete all vector data</strong> currently in the document and skill databases! Vectors generated with different models cannot be mixed.
+        </p>
+        <p>New model selected: <strong id="modalTargetModelName">nomic-embed-text</strong></p>
+        <p>To confirm, please type exactly <strong>Change model and delete data</strong> in the box below:</p>
+        <input type="text" id="changeModelConfirmInput" class="input-text" placeholder="Change model and delete data">
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelChangeModel" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmChangeModel" class="btn-danger" disabled>Delete Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Clear Logs Confirmation Dialog -->
+  <div class="modal-overlay hidden" id="clearLogsModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-danger">⚠️</span> Clear Audit Logs</h3>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete all audit and conversation logs from <code>database/log.json</code>? This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelClearLogs" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmClearLogs" class="btn-danger">Confirm Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Event Detail JSON Inspector Dialog -->
+  <div class="modal-overlay hidden" id="eventDetailModal">
+    <div class="modal-box modal-box-large">
+      <div class="modal-header">
+        <h3><span class="modal-icon">📄</span> Audit Event Payload Inspector</h3>
+        <button id="btnCloseEventModal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="event-meta-grid" id="eventModalMeta">
+          <!-- Meta items dynamically injected -->
+        </div>
+
+        <!-- Prompt Section -->
+        <div class="event-detail-section">
+          <div class="event-detail-section-title">
+            <span>💬</span> Prompt / Input
+          </div>
+          <div id="eventModalPromptContainer"></div>
+        </div>
+
+        <!-- Response Section -->
+        <div class="event-detail-section">
+          <div class="event-detail-section-title">
+            <span>🤖</span> Response / Output
+          </div>
+          <div id="eventModalResponseContainer"></div>
+        </div>
+
+        <!-- Complete Raw JSON Section -->
+        <div class="event-detail-section">
+          <div class="event-detail-section-title">
+            <span>📋</span> Complete Event Payload (Raw JSON)
+          </div>
+          <div class="json-viewer-container">
+            <div class="json-viewer-header">
+              <span>Full Event Payload</span>
+              <button id="btnCopyJson" class="btn-copy">📋 Copy</button>
+            </div>
+            <pre class="json-code-block" id="eventModalJson"></pre>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCloseEventModal2" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Login Popup Modal (Mandatory on load) -->
+  <div class="modal-overlay" id="loginModal" style="display: flex;">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon">🔐</span> Sign In to Console</h3>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size: 0.88rem; margin-bottom: 1rem;">
+          Enter your credentials to access the Agent With RAG console. Default seed: <code>admin</code> / <code>admin123</code>
+        </p>
+        <div id="loginErrorMsg" class="modal-alert-text hidden" style="color: #ef4444; margin-bottom: 0.75rem;"></div>
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Username / Email</label>
+            <input type="text" id="loginUsername" class="input-text" style="width: 100%;" placeholder="admin" value="admin">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Password</label>
+            <input type="password" id="loginPassword" class="input-text" style="width: 100%;" placeholder="••••••••" value="admin123">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button id="btnLoginCancel" class="btn-secondary">Cancel</button>
+        <button id="btnLoginOk" class="btn-primary">Ok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 6: Shutdown All Containers Dialog -->
+  <div class="modal-overlay hidden" id="shutdownAllModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-danger">⚠️</span> Shutdown All System Containers</h3>
+      </div>
+      <div class="modal-body">
+        <p class="modal-alert-text">
+          Warning: This action will shut down all running Docker containers in the system and terminate the application.
+        </p>
+        <p>To confirm, please type exactly <strong>Shutdown System</strong> in the box below:</p>
+        <input type="text" id="shutdownAllConfirmInput" class="input-text" placeholder="Shutdown System">
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelShutdownAll" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmShutdownAll" class="btn-danger" disabled>Confirm Shutdown</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 7: Restart All Containers Dialog -->
+  <div class="modal-overlay hidden" id="restartAllModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-danger">🔄</span> Restart All System Containers</h3>
+      </div>
+      <div class="modal-body">
+        <p class="modal-alert-text">
+          Warning: This action will restart all Docker containers in the system.
+        </p>
+        <p>To confirm, please type exactly <strong>Restart System</strong> in the box below:</p>
+        <input type="text" id="restartAllConfirmInput" class="input-text" placeholder="Restart System">
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelRestartAll" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmRestartAll" class="btn-primary" disabled>Confirm Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 8: Container Detail & Control Popup -->
+  <div class="modal-overlay hidden" id="containerDetailModal">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon">📦</span> Container Details: <span id="modalContainerName">web_ui</span></h3>
+        <button id="btnCloseContainerModalX" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center;">
+          <div><strong>Status:</strong> <span class="badge" id="modalContainerStatus">Active</span></div>
+          <div><strong>Port:</strong> <span id="modalContainerPort" style="font-family: var(--font-mono); color: #38bdf8;">8000</span></div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: #cbd5e1;">Containers Accessed by this Service:</h4>
+          <div id="modalContainerDepsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between;">
+        <button id="btnCloseContainerModal" class="btn-secondary">Close</button>
+        <div id="modalContainerActionBtnContainer">
+          <!-- Start / Stop Button injected here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 9: Add API Key Popup -->
+  <div class="modal-overlay hidden" id="addKeyModal">
+    <div class="modal-box" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon">🗝️</span> Generate New API Key</h3>
+        <button id="btnCloseAddKeyModalX" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 0.85rem;">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Key Name</label>
+          <input type="text" id="newKeyName" class="input-text" style="width: 100%;" placeholder="Agent Integration Key">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.85rem;">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Target Container</label>
+            <select id="newKeyContainerSelect" class="input-text" style="width: 100%;">
+              <option value="agents">agents (Port 8002)</option>
+              <option value="doc_rag">doc_rag (Port 8003)</option>
+              <option value="tools">tools (Port 8005)</option>
+              <option value="logging">logging (Port 8006)</option>
+              <option value="all">all containers</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Access Level</label>
+            <select id="newKeyLevelSelect" class="input-text" style="width: 100%;">
+              <option value="Read">Read</option>
+              <option value="Write">Write</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <button id="btnAddContainerPerm" class="btn-secondary" style="padding: 0.5rem 1rem;">Add</button>
+        </div>
+
+        <!-- Configured Container & Access List -->
+        <div style="margin-bottom: 0.85rem;">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Configured Container Permissions</label>
+          <div id="newKeyPermsList" style="background: #02040a; border: 1.5px solid #334155; border-radius: 4px; padding: 0.5rem; min-height: 50px;">
+            <span class="text-muted" style="font-size: 0.82rem;">No container permissions added yet.</span>
+          </div>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Expiry Date / Time</label>
+          <input type="datetime-local" id="newKeyExpiry" class="input-text" style="width: 100%;">
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button id="btnCancelAddKey" class="btn-secondary">Cancel</button>
+        <button id="btnProceedAddKey" class="btn-primary">Proceed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 10: Show Generated API Key Popup -->
+  <div class="modal-overlay hidden" id="showKeyModal">
+    <div class="modal-box" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-success">✅</span> API Key Generated Successfully</h3>
+      </div>
+      <div class="modal-body">
+        <p class="modal-alert-text" style="color: #f59e0b; background: rgba(245, 158, 11, 0.1); border-color: #f59e0b;">
+          IMPORTANT: This API key will <strong>NOT be displayed again</strong>. Copy it now and store it in a safe place.
+        </p>
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+          <input type="text" id="displayGeneratedKeyInput" class="input-text" style="width: 100%; font-family: var(--font-mono); font-weight: 700;" readonly>
+          <button id="btnCopyGeneratedKey" class="btn-copy">📋 Copy</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCloseShowKeyModal" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 11: Edit API Key Modal -->
+  <div class="modal-overlay hidden" id="editKeyModal">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon">✏️</span> Edit API Key: <span id="editKeyNameDisplay"></span></h3>
+        <button id="btnCloseEditKeyModalX" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editKeyId">
+        <div style="margin-bottom: 1rem;">
+          <h4 style="font-size: 0.88rem; margin-bottom: 0.5rem;">Configured Access Levels:</h4>
+          <div id="editKeyRowsContainer" style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <!-- Dynamically populated rows with dropdown containing Read, Write, Admin, Delete -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between;">
+        <button id="btnCancelEditKey" class="btn-secondary">Cancel</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button id="btnDeleteKey" class="btn-danger">Delete</button>
+          <button id="btnUpdateKey" class="btn-primary">Update</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/chart.umd.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
