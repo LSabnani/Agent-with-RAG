@@ -533,33 +533,35 @@ def validate_key():
         if user_weight < req_weight:
             allowed = False
 
+    resp_data = {
+        "valid": bool(allowed),
+        "key_name": row["key_name"],
+        "access_level": granted_level,
+        "containers": containers
+    } if allowed else {"valid": False, "error": f"Permission denied for container {target_container}"}
+
     log_to_logging_container(
-        invoker=row["key_name"],
+        invoker=invoker_container or row["key_name"],
         recipient=target_container or "auth_service",
-        event_type="api_key_validation",
-        short_desc=f"API key validation: {'Success' if allowed else 'Permission Denied'}",
+        event_type="api_key_access",
+        short_desc=f"API key access ({target_container}): {'Success' if allowed else 'Permission Denied'}",
         payload={
-            "container": target_container,
-            "key_name": row["key_name"],
-            "user_name": row["creator_email"],
+            "container_name": target_container,
+            "user_name_or_key_name": row["creator_email"] if invoker_container == "web_ui" else row["key_name"],
             "ip_address": client_ip,
             "request_type": req_type,
-            "granted_level": granted_level,
-            "required_level": required_level,
-            "result": "success" if allowed else "failure"
+            "date_time": datetime.now(timezone.utc).isoformat(),
+            "result": "success" if allowed else "failure",
+            "request_payload": data,
+            "response_payload": resp_data
         },
         status="success" if allowed else "failure"
     )
 
     if allowed:
-        return jsonify({
-            "valid": True,
-            "key_name": row["key_name"],
-            "access_level": granted_level,
-            "containers": containers
-        })
+        return jsonify(resp_data)
     else:
-        return jsonify({"valid": False, "error": f"Permission denied for container {target_container}"}), 403
+        return jsonify(resp_data), 403
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))

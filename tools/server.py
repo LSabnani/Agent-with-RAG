@@ -18,10 +18,29 @@ except ImportError:
         response.headers["Access-Control-Allow-Methods"] = "*"
         return response
 
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+try:
+    from scripts.employee_search import seed_employee_data, search_employees
+    from scripts.stock_analysis import analyze_stocks
+except ImportError:
+    from tools.scripts.employee_search import seed_employee_data, search_employees
+    from tools.scripts.stock_analysis import analyze_stocks
+
 DATA_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "data"))
 CSV_PATH = os.path.join(DATA_DIR, "employee_database.csv")
 AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth_service:8001/api/auth/validate_key")
 LOGGING_SERVICE_URL = os.environ.get("LOGGING_SERVICE_URL", "http://logging:8006/api/logs")
+
+# Seed employee database on startup if needed
+try:
+    seed_employee_data(CSV_PATH)
+except Exception as e:
+    print(f"[Tools] Employee database seeding note: {e}")
+
 
 # Curated equities basket for stock search
 TRACKED_TICKERS = [

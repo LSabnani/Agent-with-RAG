@@ -2,6 +2,44 @@
 Build a web app to manage an AI Agent with RAG ability.
 
 ## 📂 Directory Architecture
+```text
+Agent-with-RAG/
+├── agents/                  # Custom and Google ADK Agent microservices (Port 8002)
+│   ├── custom_agent/        # Custom autonomous planning & orchestrator agent
+│   ├── genai/               # Google ADK / GenAI Agent implementation
+│   ├── secrets/             # Agent runtime secrets (.env, keys)
+│   ├── Dockerfile
+│   └── server.py
+├── auth_service/            # Authentication & API Key Management Service (Port 8001)
+│   ├── data/                # SQLite persistent storage (auth.db)
+│   ├── Dockerfile
+│   └── server.py
+├── doc_RAG/                 # ChromaDB Vector Store & Embedding Manager (Port 8003)
+│   ├── chroma/              # Persistent vector store database
+│   ├── Dockerfile
+│   └── server.py
+├── logging/                 # Central Logging & Telemetry Service (Port 8006)
+│   ├── logs/                # Persistent JSON event logs (log.json)
+│   ├── Dockerfile
+│   └── server.py
+├── tools/                   # Procedural Tools Service (Port 8005)
+│   ├── data/                # Data storage (employee_database.csv)
+│   ├── scripts/             # Tool implementation & seeding scripts
+│   ├── Dockerfile
+│   └── server.py
+├── web_ui/                  # Interactive 6-Tab Web Dashboard (Port 8000)
+│   ├── secrets/             # User secrets & session keys
+│   ├── static/              # CSS, JavaScript, and UI icons
+│   ├── templates/           # Flask Jinja2 HTML templates
+│   ├── Dockerfile
+│   └── app.py
+├── skills/                  # Domain skills (SKILL.md, tools, and trigger queries)
+├── sample_docs/             # Sample markdown knowledge documents
+├── tests/                   # Pytest microservices test suite
+├── docker-compose.yml       # 7-container deployment configuration
+├── requirements.txt         # Root Python dependencies
+└── README.md                # System documentation and operational guide
+```
 
 ## GUI
 - Start with the login popup window. Prompt the user to enter the username and password
@@ -207,10 +245,11 @@ The Documents and Skills container accesses:
 - If the user has admin access, display two sub-tabs: Passwords and API Keys
   - Passwords tab displays:
     - A table of all the users:
-    - Add a button to generate a new API key
-      - When clicked, a popup window open and display:
+    - Add a button to create a new user account
+      - When clicked, a popup window opens and displays:
         - A text box to enter the User Name for the new user
-        - A dropdown box with the list of all the containers 
+        - A text box to enter the initial Password
+        - A dropdown box with the list of roles (Admin, Editor, User) 
 
       - The table should have columns showing:
         - User Name
@@ -286,8 +325,9 @@ The Documents and Skills container accesses:
   - Provide the access to the UI described above.
   - Create a unique Conversation ID for each chat message.
   - When sending a request to the Agent container, include the API key that was provided by the user on the login page in the web UI.
-  - Log when the user:
-    - Logs into and out of the system with:
+
+  - Create a log when the user:
+    - Logs in and out of the system with:
       - the user name
       - IP address
       - time of login and logout
@@ -295,7 +335,7 @@ The Documents and Skills container accesses:
       - the user name
       - IP address
       - time the page was viewed
-      - page name
+      - name of the page being viewed
 
 ### Authentication Service
 - Create a container for the authentication & authorization services in the auth_service/ folder
@@ -304,6 +344,7 @@ The Documents and Skills container accesses:
   - Manages user accounts and API keys as described in the "Passwords & API keys" page in the web UI.
   - When a new user account is created, it is initially set to "Locked" status. The administrator can unlock the account via the UI.
   - Allows the containers to authenticate and get the permissions of the API key provided when the container gets the request from the other containers or from the web UI.
+
   - Create a log of API key access from each container and user, and send them to the Logging container using the Logging service API. The API key access log should contain the following information:
     - Container name
     - User name (if from the Web UI) or API key name (if from other containers)
@@ -402,49 +443,74 @@ The Custom Agent should operate as follow:
 - Create a doc_RAG container in the doc_RAG/ folder.
   - Use FastMCP server with async HTTP transport as an interface to provide access to query the documents and skills vector store databases.
   - Use the API key sent in the request to check with the Authorization Service whether the service has the authority to access the embedding service
-  - All the query calls must include Conversation ID to allow the logging service to track the calls
+  - Use chromadb to store the documents and skills vector database
+  - Each record should contain:
+    - type: "document" or "skill"
+    - name: name of the document or skill
+    - date_time: date and time of upload
+    - vector_text: the text chunk or complete text of the skill
+    - vector: the vector of the text chunk or complete text of the skill
 
   - The vector store database has the following services:
-    - All the requests to the vector store must include the database type: "document" or "skill"
-    - Add New Document. Only allow users with edit or admin permission to add new documents. The request must contain:
-      - the name of the document or skill
-      - the complete text of the document or skill
-      - for skill, the "vector_text" that should be used to create the vector for this skill
-    - Delete Document or the skill. Only allow users with edit or admin permission to delete documents. The request must contain:
-      - the name of the document or skill
-    - Query the vector database. The request must contain:
-      - the Conversation ID
-      - the query text
-      - the matching threshold
-      - the number of text chunks to return
-      - Return the text chunks that have the highest similarity scores above the matching threshold to the query.
-        - Sort by descending order of the similarity scores
-        - Return no more than the number of text chunks specified.
+    - List all the documents and skills:
+      - The request must contain:
+        - N/A
+      - Response should include:
+        - the list of documents and skills imported in the vector store group by type(documents, skills)
+        - Number of documents and skills
+        - The size of the database
 
-  - Use chromadb to store the documents and skills vector database
-  - Create two databases: one for the document and another for the skill storage
-  - Each record should contain:
-    - name of the document or skill
-    - the text chunk or complete text of the skill
-    - the vector of the text chunk or complete text of the skill
+    - Add New Document:
+      - Allow users with edit or admin permission to add new documents.
+      - The request contains:
+        - User ID. Required
+        - Document type (document, skill). Required
+        - Document name. Required
+        - Complete text of the document or skill. Required
+        - Chunk size. Required for document type "document"
+        - Overlap. Required for document type "document"
+      - Response should indicate success or failure
 
-  - For skill database:
-    - To add skill into the vector database:
-      - Use the embedding container to create the vector for the text in the "vector_text" of the skill.
-      - Store the skill name, vector, and the complete text of the skill in the vector database
+      - If document type is "skill":
+        - Use the "vector_text" to create the vector for this skill
+        - Store the skill name, vector, date & time of upload, and the complete text of the skill in the vector database
 
-  - For document database:
-    - Split the complete text of the document into chunks using the Chunk size and Overlap parameter sent in the request
-    - Generate vectors for each chunk via the embedding container
-    - Store each chunk record (document name, chunk text, chunk index, vector) in ChromaDB.
+      - If document type is "document":
+        - Split the complete text of the document into chunks using the Chunk size and Overlap parameter sent in the request
+        - Generate vectors for each chunk via the embedding container
+        - Store each chunk record (document name, date & time of upload,  chunk text, chunk index, vector) in the vector database
 
-  - Create logs of all the communication between the request container and the vector store container. Include the Conversation ID (if available), the invoker, the recipient (Vector Store Service), date and time of the call, the request, and the full payload of the request and response.
-  - Create a log for all the API requests and responses between the vector store container and the embedding container. Include the following information:
-    - invoker
-    - recipient (Embedding Service)
-    - date and time of the call
-    - the request
-    - the response
+    - Delete a document:
+      - Allow users with edit or admin permission to add new documents.
+      - The request must contain:
+        - User ID. Required
+        - Document type (document, skill). Required
+        - Document name or ALL. Required
+      - Response should indicate success or failure
+
+    - Query Documents:
+      - The request contains:
+        - User ID. Required
+        - Conversation ID. Required
+        - Document type (document, skill). Required
+        - K (number of results). Optional. Default is 5
+        - Threshold (similarity score). Optional. Default is 0.3
+        - Query String. Required
+      - Response should include:
+        - The list of documents and skills that matched the query
+        - The similarity score of each document and skill
+        - The chunk text of each document and skill
+
+  - Create logs of all the communication between the request container and the vector store container:
+    - All records should include the name of the service "Vector DB" or "Embedding" (depending on which service is being called), user id, conversation id (if applicable), date and time, and type of operation.
+    - For Add: Include the document type, document name, chunk size and overlap (if applicable), and success status.
+    - For Delete: Include the document type, document name, and success status.
+    - For Query to Vector DB:
+      - One record for the request: include the document type, k, threshold, and query string.
+      - One record for the response: include the list of document chunks or skills that matched the query, and the similarity score of each document chunk or skill
+
+    - For Query to the Embedding Service:
+      - Include the model used to embed the documents and skills
 
 ### Embedding
 - Create an embedding container in the embedding/ folder.
@@ -455,16 +521,13 @@ The Custom Agent should operate as follow:
   - If the API key used for the service has edit or admin permission, allows the following:
     - Change or update the model used to embed the documents and skills
 
-
 ### Tools
 - Create a tools container in the tools/ folder.
   - Use FastMCP with async HTTP transport to serve all the access to the tools in the container. 
   - Use the API key sent in the request to check with the Authorization Service whether the service has the authority to access the tools
   - All the calls must include Conversation ID to allow the logging service to track the calls
   - The container should have a volume data/ mounted to ./tools/data/ on the host hard drive to persist any data
-  - The first tool provides the information about the employee from the csv file. The tool can search the employee by name, city, country, or job title.
-    - Create 30 random employee records with name, city, country, and job title in a csv file. Store the data in the data/employee_database.csv file.
-  - The second tool gets the list of stocks with the highest percentage increase or lowest percentage decrease based on criteria from the arguments in the function call.
+
   - Create logs of all the calls to the tools service. Include: 
     - Conversation ID
     - invoker
@@ -472,6 +535,11 @@ The Custom Agent should operate as follow:
     - date and time of the call
     - arguments
     - complete request and response payload.
+
+  - Create seeding scripts to populate the tools service with data:
+    - The first tool script "employee_search" provides the information about the employee from the csv file. The tool can search the employee by name, city, country, or job title.
+      - Create 30 random employee records with name, city, country, and job title in a csv file. Store the data in the data/employee_database.csv file.
+    - The second tool script "stock_analysis" gets the list of stocks with the highest percentage increase or lowest percentage decrease based on criteria from the arguments in the function call.
 
 ### Logging
 - Create a logging service container in the logging/ folder to store logs from all the entities that interact with the system.
@@ -485,6 +553,258 @@ The Custom Agent should operate as follow:
       - Conversation ID
       - Date range
       - Fields to return or statistics
+
+## 🔌 Microservices API Reference
+
+### 1. Web UI Service (`web_ui`, Port 8000)
+- `GET /`
+  - Serves the unified multi-tab Web Application dashboard.
+- `POST /api/auth/login`
+  - Validates user credentials with Auth Service and initializes user session.
+  - Request: `{"username": "<user>", "password": "<pass>"}`
+  - Response: `{"status": "success", "user": {"email": "<user>", "role": "Admin|Editor|User", "status": "Active"}}`
+- `POST /api/auth/logout`
+  - Logs user logout event, terminates session, and returns to login popup.
+- `POST /api/auth/register`
+  - Registers a new user account with initial "Locked" status.
+  - Request: `{"username": "<user>", "password": "<pass>"}`
+- `POST /api/page_view`
+  - Records user page navigation event for auditing.
+  - Request: `{"page_name": "<page>", "username": "<user>", "session_id": "<id>"}`
+- `GET /api/models`
+  - Proxies to Agents service to return active text generation models.
+- `POST /api/chat`
+  - Proxies user chat prompt and configuration parameters to Agents container.
+  - Request: `{"message": "<text>", "agent_type": "...", "model": "...", "max_turns": 3, "temperature": 0.7, ...}`
+- `GET /api/rag/stats` & `GET /api/rag/documents`
+  - Proxies vector store statistics and document lists from doc_RAG.
+- `POST /api/rag/upload`
+  - Accepts multipart/form-data document upload (.txt, .md, .pdf) or URL import.
+- `DELETE /api/rag/documents/<name>`
+  - Proxies document deletion to doc_RAG.
+- `GET /api/telemetry`
+  - Proxies token velocity and model usage metrics from Logging service.
+- `GET /api/audit_logs`
+  - Proxies conversation event traces and raw payloads from Logging service.
+- `GET /api/containers/status`
+  - Queries local Docker socket (`/var/run/docker.sock`) to report status, CPU%, and memory usage of all 7 containers.
+- `POST /api/containers/<name>/action`
+  - Executes container action (`start`, `stop`, `restart`) via Docker SDK.
+- `POST /api/system/shutdown` & `POST /api/system/restart`
+  - Executes system-wide graceful shutdown or restart.
+
+### 2. Authentication & Authorization Service (`auth_service`, Port 8001)
+- `GET /health`
+  - Health check endpoint returning service status and port.
+- `POST /api/auth/login`
+  - Authenticates username and password against SQLite database (`auth.db`).
+  - Request: `{"username": "<str>", "password": "<str>", "ip_address": "<str>"}`
+  - Response: `{"status": "success", "user": {"id": 1, "email": "...", "role": "...", "status": "Active"}}` (or 401 Unauthorized / 403 Forbidden for Locked status).
+- `POST /api/auth/logout`
+  - Logs user logout activity and writes to activity log.
+  - Request: `{"username": "<str>", "ip_address": "<str>"}`
+- `POST /api/auth/register`
+  - Registers a new account with default status `Locked`.
+  - Request: `{"username": "<str>", "password": "<str>", "ip_address": "<str>"}`
+  - Response (201): `{"status": "success", "message": "Account created in Locked status", "user_id": <int>}`
+- `GET /api/users`
+  - Lists all registered users with roles, statuses, and creation timestamps.
+- `PUT /api/users/<id>/status`
+  - Updates account status (`Active` or `Locked`). Admin only.
+  - Request: `{"status": "Active"|"Locked"}`
+- `PUT /api/users/<id>/role`
+  - Updates user role (`Admin`, `Editor`, `User`). Admin only.
+  - Request: `{"role": "Admin"|"Editor"|"User"}`
+- `POST /api/users/<id>/reset_password`
+  - Resets password for the specified user account.
+  - Request: `{"password": "<new_password>"}`
+- `DELETE /api/users/<id>`
+  - Deletes user account from the system. Admin only.
+- `GET /api/users/activity_logs`
+  - Returns chronological table of user access and authentication events.
+- `GET /api/keys`
+  - Lists all configured API keys with names, prefixes, scopes, and expiration dates.
+- `POST /api/keys`
+  - Generates a new cryptographically secure API key (`key-<hex>`) with 1-year expiration.
+  - Request: `{"key_name": "<str>", "creator_email": "<str>", "containers": ["tools", "doc_rag"], "access_levels": ["Read", "Write"], "expires_at": "<iso>"}`
+  - Response (201): `{"status": "success", "api_key": "key-...", "key_name": "..."}`
+- `PUT /api/keys/<id>`
+  - Updates key configuration (name, container scopes, access levels, or status).
+- `DELETE /api/keys/<id>`
+  - Revokes and removes an API key.
+- `POST /api/auth/validate_key`
+  - Authenticates and authorizes an API key for inter-container communication. Emits structured access log to Logging container.
+  - Request: `{"api_key": "<key>", "container": "tools|doc_rag|agents", "access_level": "read|write|admin", "invoker": "<service>"}`
+  - Response: `{"valid": true, "key_name": "...", "access_level": "Admin", "containers": [...]}`
+
+### 3. Agents Service (`agents`, Port 8002)
+- `GET /health`
+  - Health check endpoint returning service status and port.
+- `GET /api/agents/models` (or `GET /api/models`)
+  - Fetches active text generation models from Google AI Studio / Gemini API and returns model metadata (ID, display name, max input/output tokens, and default model).
+  - Response: `{"models": [...], "default": "gemma-4-26b-a4b-it"}`
+- `GET /api/agents/skills`
+  - Returns list of domain skills discovered and loaded from the `skills/` directory.
+- `POST /api/agent/chat`
+  - Orchestrates autonomous multi-turn reasoning and tool invocation for user queries.
+  - Request:
+    ```json
+    {
+      "message": "<user query>",
+      "conversation_id": "conv_<timestamp>",
+      "agent_type": "Custom Agent" | "Google ADK Agent",
+      "model": "<model_id>",
+      "temperature": 0.7,
+      "max_tokens": 2048,
+      "max_turns": 3,
+      "skill_selector": "Vector Store Selects" | "LLM Selects" | "<skill_name>",
+      "skill_threshold": 0.2,
+      "doc_threshold": 0.3,
+      "max_chunks": 5,
+      "api_key": "<agent_api_key>"
+    }
+    ```
+  - Response:
+    ```json
+    {
+      "status": "success",
+      "response": "<formatted answer>",
+      "conversation_id": "...",
+      "agent_type": "...",
+      "model": "...",
+      "duration_ms": 1420,
+      "steps": [...],
+      "logs": [...]
+    }
+    ```
+- `GET /sse`
+  - FastMCP SSE endpoint for async client connections.
+- `POST /messages`
+  - FastMCP protocol message dispatcher.
+
+### 4. Documents & Skills Vector Store Service (`doc_RAG`, Port 8003)
+- `GET /health`
+  - Health check endpoint returning service status and port.
+- `GET /api/rag/list` (or `GET /api/rag/documents`, `GET /api/rag/stats`)
+  - Lists all ingested documents and skills grouped by type, total counts, and storage size.
+  - Response: `{"status": "success", "documents": ["doc1", ...], "skills": ["skill1", ...], "count_documents": 1, "count_skills": 4, "chunks_count": 5, "db_size_mb": 0.74}`
+- `POST /api/rag/add` (or `POST /api/rag/documents/add`)
+  - Adds a new document or skill to the ChromaDB vector database.
+  - Request:
+    ```json
+    {
+      "user_id": "<user_id>",
+      "type": "document" | "skill",
+      "name": "<name>",
+      "text": "<complete text>",
+      "chunk_size": 800,
+      "overlap": 100,
+      "vector_text": "<text to embed>",
+      "api_key": "<api_key>"
+    }
+    ```
+  - Response: `{"status": "success", "type": "...", "name": "...", "chunks_created": <int>}`
+- `POST /api/rag/delete` (or `POST /api/rag/documents/delete`, `DELETE /api/rag/documents/<name>`)
+  - Deletes document or skill by name, or wipes entire collection if name is `"ALL"`.
+  - Request: `{"user_id": "<user_id>", "type": "document"|"skill", "name": "<name>|ALL"}`
+  - Response: `{"status": "success", "deleted_records": <int>}`
+- `POST /api/rag/query`
+  - Performs semantic vector similarity search against document chunks or skills. Emits separate request and response audit logs to Logging container.
+  - Request:
+    ```json
+    {
+      "user_id": "<user_id>",
+      "conversation_id": "conv_<id>",
+      "type": "document" | "skill",
+      "query": "<search text>",
+      "k": 5,
+      "threshold": 0.3,
+      "api_key": "<api_key>"
+    }
+    ```
+  - Response:
+    ```json
+    {
+      "status": "success",
+      "type": "document",
+      "count": 1,
+      "results": [
+        {
+          "name": "<doc_name>",
+          "similarity_score": 0.72,
+          "chunk_text": "<text>",
+          "metadata": {"type": "document", "name": "...", "date_time": "...", "chunk_index": 0}
+        }
+      ]
+    }
+    ```
+- `POST /api/rag/reset`
+  - Clears all document vectors from ChromaDB. Admin only.
+- `GET /sse` & `POST /messages`
+  - FastMCP async interface exposing `query_documents` and `query_vector_db` tools.
+
+### 5. Procedural Tools Service (`tools`, Port 8005)
+- `GET /health`
+  - Health check endpoint returning service status and port.
+- `GET /api/tools/list`
+  - Returns directory of available tools, schemas, and argument specifications.
+- `POST /api/tools/call`
+  - Dispatches and executes tool logic. Validates API key and emits invocation/response logs.
+  - Request:
+    ```json
+    {
+      "tool": "person_search.query_person_registry" | "stock_search.query_stocks",
+      "arguments": {"keyword": "Dubois", "field": "name"},
+      "conversation_id": "conv_<id>",
+      "api_key": "<api_key>"
+    }
+    ```
+  - Response: `{"tool": "...", "result": {...}, "status": "success", "duration_ms": 12}`
+- `GET /sse` & `POST /messages`
+  - FastMCP async interface exposing `person_search.query_person_registry` and `stock_search.query_stocks`.
+
+### 6. Central Logging & Telemetry Service (`logging`, Port 8006)
+- `GET /health`
+  - Health check endpoint returning service status and port.
+- `POST /api/logs`
+  - Ingests structured audit log events from all system components.
+  - Request:
+    ```json
+    {
+      "invoker": "<source>",
+      "recipient": "<target>",
+      "conversation_id": "<conv_id>",
+      "type": "user_session_login|page_view|api_key_access|vector_db_query_request|...",
+      "short_description": "<summary>",
+      "payload": {...},
+      "status": "success" | "failure",
+      "duration_ms": 120,
+      "input_tokens": 512,
+      "output_tokens": 128,
+      "model": "..."
+    }
+    ```
+  - Response (201): `{"status": "success", "log_id": "log_..."}`
+- `GET /api/logs/query` (or `POST /api/logs/query`)
+  - Queries, filters, and paginates system log entries.
+  - Query parameters: `conversation_id`, `entity`, `type`, `start_date`, `end_date`, `model`, `search`, `limit`, `offset`.
+  - Response: `{"count": <int>, "logs": [...]}`
+- `GET /api/logs/conversations`
+  - Returns aggregated list of user conversations (Timestamp, Conversation ID, User Query, Agent Response, Event Count).
+- `GET /api/logs/statistics`
+  - Aggregates operational telemetry metrics (Total Prompts, Responses, Errors, Input/Output Tokens, Avg Latency, and time-interval aggregations).
+- `DELETE /api/logs` (or `POST /api/logs/clear`)
+  - Wipes all persisted logs from `logs/log.json`.
+
+### 7. Ollama Embedding Service (`ollama`, Port 11434)
+- `POST /api/embeddings`
+  - Generates high-dimensional vector embeddings for input text.
+  - Request: `{"model": "bge-large:latest", "prompt": "<text>"}`
+  - Response: `{"embedding": [0.012, -0.045, ...]}`
+- `GET /api/tags`
+  - Lists downloaded and available embedding models.
+- `POST /api/pull`
+  - Downloads / pulls a specified embedding model.
 
 ## Sample Documents
 - Create 3 sample documents in the sample_docs/ folder

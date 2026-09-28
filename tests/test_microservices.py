@@ -166,15 +166,58 @@ def test_doc_rag_service():
     assert res.status_code == 200
     assert res.get_json()["port"] == 8003
 
-    # Stats
-    stats_res = client.get("/api/rag/stats")
+    # 1. List / Stats
+    stats_res = client.get("/api/rag/list")
     assert stats_res.status_code == 200
-    assert "total_chunks" in stats_res.get_json()
+    stats_data = stats_res.get_json()
+    assert "count_documents" in stats_data
+    assert "count_skills" in stats_data
+    assert "db_size_mb" in stats_data
 
-    # List skills
-    skills_res = client.get("/api/rag/skills")
-    assert skills_res.status_code == 200
-    assert "skills" in skills_res.get_json()
+    # 2. Add New Document
+    add_doc_res = client.post("/api/rag/add", json={
+        "user_id": "test_admin",
+        "type": "document",
+        "name": "spec_test_doc",
+        "text": "Antigravity Agent system with ChromaDB and FastMCP architecture.",
+        "chunk_size": 200,
+        "overlap": 20
+    })
+    assert add_doc_res.status_code == 200
+    assert add_doc_res.get_json()["status"] == "success"
+
+    # 3. Add New Skill
+    add_skill_res = client.post("/api/rag/add", json={
+        "user_id": "test_admin",
+        "type": "skill",
+        "name": "spec_test_skill",
+        "text": "A skill to analyze system logs and telemetry.",
+        "vector_text": "analyze system logs and telemetry"
+    })
+    assert add_skill_res.status_code == 200
+    assert add_skill_res.get_json()["status"] == "success"
+
+    # 4. Query Documents
+    query_res = client.post("/api/rag/query", json={
+        "user_id": "test_user",
+        "conversation_id": "conv_test_123",
+        "type": "document",
+        "query": "ChromaDB FastMCP",
+        "k": 3,
+        "threshold": 0.1
+    })
+    assert query_res.status_code == 200
+    q_data = query_res.get_json()
+    assert q_data["status"] == "success"
+
+    # 5. Delete Document
+    del_res = client.post("/api/rag/delete", json={
+        "user_id": "test_admin",
+        "type": "document",
+        "name": "spec_test_doc"
+    })
+    assert del_res.status_code == 200
+    assert del_res.get_json()["status"] == "success"
 
 # 5. Test Agents Service
 def test_agents_service():

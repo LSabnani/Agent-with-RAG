@@ -27,7 +27,7 @@ os.makedirs(CHROMA_DIR, exist_ok=True)
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://ollama:11434")
 AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth_service:8001/api/auth/validate_key")
 LOGGING_SERVICE_URL = os.environ.get("LOGGING_SERVICE_URL", "http://logging:8006/api/logs")
-CURRENT_EMBED_MODEL = os.environ.get("EMBED_MODEL", "nomic-embed-text")
+CURRENT_EMBED_MODEL = os.environ.get("EMBED_MODEL", "bge-large:latest")
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_DIR, settings=Settings(anonymized_telemetry=False))
 doc_collection = chroma_client.get_or_create_collection(name="documents", metadata={"hnsw:space": "cosine"})
@@ -71,11 +71,12 @@ def check_auth(api_key, required_level="read", invoker="agent"):
     except Exception as e:
         return True, f"Bypass: {e}"
 
-def get_embedding(text, model=None):
-    """Retrieve vector embedding from Ollama Embedding service."""
+def get_embedding(text, model=None, conv_id=None, user_id=None):
+    """Retrieve vector embedding from Ollama Embedding service with logging."""
     m = model or CURRENT_EMBED_MODEL
     url = resolve_url(OLLAMA_URL, "ollama", 11434)
     start_time = time.time()
+    vec = []
     try:
         resp = requests.post(f"{url}/api/embeddings", json={"model": m, "prompt": text}, timeout=10)
         dur_ms = int((time.time() - start_time) * 1000)
@@ -83,15 +84,24 @@ def get_embedding(text, model=None):
             vec = resp.json().get("embedding", [])
             # Log communication between Vector Store and Embedding container
             log_event(
-                invoker="doc_RAG",
-                recipient="Embedding Service",
-                event_type="embedding_request",
+                invoker="Vector DB",
+                recipient="Embedding",
+                event_type="embedding_query",
                 short_desc=f"Generated vector via Ollama ({m})",
-                req_payload={"model": m, "text_sample": text[:80]},
-                resp_payload={"dimension": len(vec), "duration_ms": dur_ms}
+                req_payload={
+                    "service": "Embedding",
+                    "user_id": user_id or "system",
+                    "conversation_id": conv_id,
+                    "date_time": datetime.now(timezone.utc).isoformat(),
+                    "operation": "embed",
+                    "model_used": m,
+                    "text_sample": text[:80]
+                },
+                resp_payload={"dimension": len(vec), "duration_ms": dur_ms, "status": "success"},
+                conv_id=conv_id
             )
             return vec
-    except Exception as e:
+    except Exception:
         pass
 
     # Deterministic fallback vector in case Ollama model is downloading
@@ -124,17 +134,21 @@ def chunk_text(text, chunk_size=800, overlap=100):
 def health():
     return jsonify({"status": "healthy", "service": "doc_RAG", "port": 8003})
 
+# 1. List all the documents and skills
+@app.route("/api/rag/list", methods=["GET"])
+@app.route("/api/rag/documents", methods=["GET"])
 @app.route("/api/rag/stats", methods=["GET"])
-def get_stats():
+def list_documents_and_skills():
     try:
         doc_count = doc_collection.count()
         skill_count = skill_collection.count()
-        
-        # Calculate distinct document names
-        all_meta = doc_collection.get(include=["metadatas"])["metadatas"] or []
-        doc_names = set(m.get("document_name") for m in all_meta if m.get("document_name"))
 
-        # Folder size in MB
+        all_doc_meta = doc_collection.get(include=["metadatas"])["metadatas"] or []
+        doc_names = sorted(list(set(m.get("name") or m.get("document_name") for m in all_doc_meta if m.get("name") or m.get("document_name"))))
+
+        all_skill_meta = skill_collection.get(include=["metadatas"])["metadatas"] or []
+        skill_names = sorted(list(set(m.get("name") or m.get("skill_name") for m in all_skill_meta if m.get("name") or m.get("skill_name"))))
+
         total_bytes = 0
         for root, dirs, files in os.walk(CHROMA_DIR):
             for f in files:
@@ -143,209 +157,309 @@ def get_stats():
 
         return jsonify({
             "status": "success",
+            "documents": doc_names,
+            "skills": skill_names,
+            "count_documents": len(doc_names),
+            "count_skills": len(skill_names),
             "chunks_count": doc_count,
-            "documents_count": len(doc_names),
-            "skills_count": skill_count,
-            "db_size_mb": db_size_mb,
-            "documents": list(doc_names)
+            "db_size_mb": db_size_mb
         })
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
 
-@app.route("/api/rag/skills/add", methods=["POST"])
-def add_skill():
-    data = request.get_json(silent=True) or {}
-    skill_name = data.get("name")
-    vector_text = data.get("vector_text") or skill_name
-    complete_text = data.get("complete_text") or ""
-    api_key = data.get("api_key") or request.headers.get("X-API-Key")
-
-    is_valid, msg = check_auth(api_key, "write", invoker=data.get("invoker", "agent"))
-    if not is_valid:
-        return jsonify({"error": msg}), 403
-
-    if not skill_name or not complete_text:
-        return jsonify({"error": "Skill name and complete_text required"}), 400
-
-    vector = get_embedding(vector_text)
-    skill_id = f"skill_{hashlib.md5(skill_name.encode('utf-8')).hexdigest()}"
-
-    # Upsert skill
-    skill_collection.upsert(
-        ids=[skill_id],
-        embeddings=[vector],
-        documents=[complete_text],
-        metadatas=[{"skill_name": skill_name, "vector_text": vector_text}]
-    )
-
-    log_event(
-        invoker=data.get("invoker", "agent"),
-        recipient="Vector Store Service",
-        event_type="skill_ingest",
-        short_desc=f"Added skill '{skill_name}' to skill vector DB",
-        req_payload={"name": skill_name, "vector_text": vector_text},
-        resp_payload={"status": "stored", "skill_id": skill_id}
-    )
-
-    return jsonify({"status": "success", "skill_id": skill_id, "skill_name": skill_name})
-
+# 2. Add New Document or Skill
+@app.route("/api/rag/add", methods=["POST"])
 @app.route("/api/rag/documents/add", methods=["POST"])
-def add_document():
+def add_document_or_skill():
     data = request.get_json(silent=True) or {}
-    doc_name = data.get("name")
-    complete_text = data.get("complete_text") or ""
+    user_id = data.get("user_id", "admin")
+    doc_type = (data.get("type") or data.get("document_type") or "document").lower()
+    name = (data.get("name") or data.get("document_name") or data.get("skill_name") or "").strip()
+    complete_text = data.get("text") or data.get("complete_text") or ""
     chunk_size = int(data.get("chunk_size", 800))
     overlap = int(data.get("overlap", 100))
+    vector_text = data.get("vector_text") or complete_text or name
     api_key = data.get("api_key") or request.headers.get("X-API-Key")
 
     is_valid, msg = check_auth(api_key, "write", invoker=data.get("invoker", "agent"))
     if not is_valid:
         return jsonify({"error": msg}), 403
 
-    if not doc_name or not complete_text:
-        return jsonify({"error": "Document name and complete_text required"}), 400
+    if not name or not complete_text:
+        return jsonify({"error": "Document name and complete text required"}), 400
 
-    chunks = chunk_text(complete_text, chunk_size=chunk_size, overlap=overlap)
-    if not chunks:
-        return jsonify({"error": "No valid text chunks generated"}), 400
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    ids = []
-    embeddings = []
-    metadatas = []
-    documents = []
+    if doc_type == "skill":
+        vector = get_embedding(vector_text, user_id=user_id)
+        skill_id = f"skill_{hashlib.md5(name.encode('utf-8')).hexdigest()}"
 
-    for idx, c in enumerate(chunks):
-        c_id = f"doc_{hashlib.md5((doc_name + str(idx) + c[:50]).encode('utf-8')).hexdigest()}"
-        vec = get_embedding(c)
-        ids.append(c_id)
-        embeddings.append(vec)
-        documents.append(c)
-        metadatas.append({
-            "document_name": doc_name,
-            "chunk_index": idx,
-            "total_chunks": len(chunks),
-            "chunk_size": len(c)
+        skill_collection.upsert(
+            ids=[skill_id],
+            embeddings=[vector],
+            documents=[complete_text],
+            metadatas=[{
+                "type": "skill",
+                "name": name,
+                "skill_name": name,
+                "date_time": now_iso,
+                "vector_text": vector_text
+            }]
+        )
+
+        log_event(
+            invoker="Vector DB",
+            recipient="logging",
+            event_type="document_add",
+            short_desc=f"Added skill '{name}' to Vector DB",
+            req_payload={
+                "service": "Vector DB",
+                "user_id": user_id,
+                "date_time": now_iso,
+                "operation": "add",
+                "document_type": "skill",
+                "document_name": name,
+                "success_status": "success"
+            },
+            resp_payload={"skill_id": skill_id, "status": "success"}
+        )
+
+        return jsonify({"status": "success", "type": "skill", "name": name, "skill_id": skill_id})
+
+    else:
+        # Document ingestion
+        chunks = chunk_text(complete_text, chunk_size=chunk_size, overlap=overlap)
+        if not chunks:
+            return jsonify({"error": "No valid text chunks generated"}), 400
+
+        ids = []
+        embeddings = []
+        metadatas = []
+        documents = []
+
+        for idx, c in enumerate(chunks):
+            c_id = f"doc_{hashlib.md5((name + str(idx) + c[:50]).encode('utf-8')).hexdigest()}"
+            vec = get_embedding(c, user_id=user_id)
+            ids.append(c_id)
+            embeddings.append(vec)
+            documents.append(c)
+            metadatas.append({
+                "type": "document",
+                "name": name,
+                "document_name": name,
+                "date_time": now_iso,
+                "chunk_index": idx,
+                "total_chunks": len(chunks),
+                "chunk_size": len(c),
+                "vector_text": c
+            })
+
+        doc_collection.upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+
+        log_event(
+            invoker="Vector DB",
+            recipient="logging",
+            event_type="document_add",
+            short_desc=f"Added document '{name}' ({len(chunks)} chunks) to Vector DB",
+            req_payload={
+                "service": "Vector DB",
+                "user_id": user_id,
+                "date_time": now_iso,
+                "operation": "add",
+                "document_type": "document",
+                "document_name": name,
+                "chunk_size": chunk_size,
+                "overlap": overlap,
+                "success_status": "success"
+            },
+            resp_payload={"chunks_created": len(chunks), "characters": len(complete_text), "status": "success"}
+        )
+
+        return jsonify({
+            "status": "success",
+            "type": "document",
+            "name": name,
+            "document_name": name,
+            "chunks_created": len(chunks),
+            "total_characters": len(complete_text)
         })
 
-    # Ingest in batch into ChromaDB
-    doc_collection.upsert(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+# Compatibility for /api/rag/skills/add
+@app.route("/api/rag/skills/add", methods=["POST"])
+def legacy_add_skill():
+    data = request.get_json(silent=True) or {}
+    data["type"] = "skill"
+    return add_document_or_skill()
+
+# 3. Delete a Document or Skill
+@app.route("/api/rag/delete", methods=["POST"])
+@app.route("/api/rag/documents/delete", methods=["POST"])
+@app.route("/api/rag/documents/<path:doc_name>", methods=["DELETE"])
+def delete_document_or_skill(doc_name=None):
+    data = request.get_json(silent=True) or {}
+    user_id = data.get("user_id") or request.args.get("user_id") or "admin"
+    doc_type = (data.get("type") or request.args.get("type") or "document").lower()
+    name = (data.get("name") or doc_name or request.args.get("name") or "").strip()
+    api_key = request.headers.get("X-API-Key") or request.args.get("api_key") or data.get("api_key")
+
+    is_valid, msg = check_auth(api_key, "write", invoker="web_ui")
+    if not is_valid:
+        return jsonify({"error": msg}), 403
+
+    if not name:
+        return jsonify({"error": "Document name or ALL required"}), 400
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    deleted_count = 0
+
+    if name.upper() == "ALL":
+        if doc_type in ["skill", "all"]:
+            s_all = skill_collection.get()
+            if s_all.get("ids"):
+                skill_collection.delete(ids=s_all["ids"])
+                deleted_count += len(s_all["ids"])
+        if doc_type in ["document", "all"]:
+            d_all = doc_collection.get()
+            if d_all.get("ids"):
+                doc_collection.delete(ids=d_all["ids"])
+                deleted_count += len(d_all["ids"])
+    else:
+        target_col = skill_collection if "skill" in doc_type else doc_collection
+        all_data = target_col.get(include=["metadatas"])
+        ids_to_del = []
+        if all_data.get("ids") and all_data.get("metadatas"):
+            for i, m in zip(all_data["ids"], all_data["metadatas"]):
+                if (m.get("name") == name or m.get("document_name") == name or m.get("skill_name") == name):
+                    ids_to_del.append(i)
+        if ids_to_del:
+            target_col.delete(ids=ids_to_del)
+            deleted_count = len(ids_to_del)
 
     log_event(
-        invoker=data.get("invoker", "web_ui"),
-        recipient="Vector Store Service",
-        event_type="document_ingest",
-        short_desc=f"Ingested '{doc_name}' ({len(chunks)} chunks)",
-        req_payload={"document_name": doc_name, "chunk_size": chunk_size, "overlap": overlap},
-        resp_payload={"chunks_created": len(chunks), "characters": len(complete_text)}
+        invoker="Vector DB",
+        recipient="logging",
+        event_type="document_delete",
+        short_desc=f"Deleted {doc_type} '{name}' ({deleted_count} records)",
+        req_payload={
+            "service": "Vector DB",
+            "user_id": user_id,
+            "date_time": now_iso,
+            "operation": "delete",
+            "document_type": doc_type,
+            "document_name": name,
+            "success_status": "success"
+        },
+        resp_payload={"deleted_records": deleted_count, "status": "success"}
     )
 
-    return jsonify({
-        "status": "success",
-        "document_name": doc_name,
-        "chunks_created": len(chunks),
-        "total_characters": len(complete_text)
-    })
+    return jsonify({"status": "success", "document_name": name, "deleted_records": deleted_count})
 
+# 4. Query Documents and Skills
 @app.route("/api/rag/query", methods=["POST"])
-def query_vector_db():
+def query_documents():
     data = request.get_json(silent=True) or {}
-    db_type = data.get("db_type", "document").lower()  # "document" or "skill"
-    query_text = (data.get("query") or data.get("query_text") or "").strip()
-    threshold = float(data.get("threshold", 0.2))
-    limit = int(data.get("limit", 5))
-    conv_id = data.get("conversation_id")
+    user_id = data.get("user_id", "user")
+    conv_id = data.get("conversation_id") or f"conv_{int(time.time())}"
+    doc_type = (data.get("type") or data.get("db_type") or "document").lower()
+    k = int(data.get("k") or data.get("limit") or 5)
+    threshold = float(data.get("threshold", 0.3))
+    query_string = (data.get("query") or data.get("query_string") or data.get("query_text") or "").strip()
     api_key = data.get("api_key") or request.headers.get("X-API-Key")
 
     is_valid, msg = check_auth(api_key, "read", invoker=data.get("invoker", "agent"))
     if not is_valid:
         return jsonify({"error": msg}), 403
 
-    if not query_text:
-        return jsonify({"results": []})
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-    q_vector = get_embedding(query_text)
-    col = skill_collection if "skill" in db_type else doc_collection
-
-    if col.count() == 0:
-        return jsonify({"db_type": db_type, "results": [], "count": 0})
-
-    results = col.query(
-        query_embeddings=[q_vector],
-        n_results=min(limit * 2, max(col.count(), 1)),
-        include=["documents", "metadatas", "distances"]
-    )
-
-    matches = []
-    docs = results["documents"][0] if results.get("documents") else []
-    metas = results["metadatas"][0] if results.get("metadatas") else []
-    dists = results["distances"][0] if results.get("distances") else []
-
-    for d, m, dist in zip(docs, metas, dists):
-        # Convert cosine distance to similarity score
-        similarity = round(max(0.0, 1.0 - dist), 4)
-        if similarity >= threshold:
-            item = {
-                "similarity_score": similarity,
-                "text": d,
-                "metadata": m
-            }
-            if "skill" in db_type:
-                item["skill_name"] = m.get("skill_name")
-            else:
-                item["document_name"] = m.get("document_name")
-                item["chunk_index"] = m.get("chunk_index")
-            matches.append(item)
-
-    # Sort descending by similarity score
-    matches.sort(key=lambda x: x["similarity_score"], reverse=True)
-    final_matches = matches[:limit]
-
+    # Log 1: Query Request
     log_event(
         invoker=data.get("invoker", "agent"),
-        recipient="Vector Store Service",
-        event_type=f"{db_type}_search",
-        short_desc=f"Query {db_type} DB: '{query_text[:40]}' ({len(final_matches)} hits)",
-        req_payload={"query": query_text, "threshold": threshold, "limit": limit, "db_type": db_type},
-        resp_payload={"results_count": len(final_matches), "top_score": final_matches[0]["similarity_score"] if final_matches else 0},
+        recipient="Vector DB",
+        event_type="vector_db_query_request",
+        short_desc=f"Query {doc_type} DB request",
+        req_payload={
+            "service": "Vector DB",
+            "user_id": user_id,
+            "conversation_id": conv_id,
+            "date_time": now_iso,
+            "operation": "query_request",
+            "document_type": doc_type,
+            "k": k,
+            "threshold": threshold,
+            "query_string": query_string
+        },
+        resp_payload={},
+        conv_id=conv_id
+    )
+
+    if not query_string:
+        return jsonify({"status": "success", "results": [], "count": 0})
+
+    q_vector = get_embedding(query_string, conv_id=conv_id, user_id=user_id)
+    col = skill_collection if "skill" in doc_type else doc_collection
+
+    matches = []
+    if col.count() > 0:
+        results = col.query(
+            query_embeddings=[q_vector],
+            n_results=min(k * 2, max(col.count(), 1)),
+            include=["documents", "metadatas", "distances"]
+        )
+        docs = results["documents"][0] if results.get("documents") else []
+        metas = results["metadatas"][0] if results.get("metadatas") else []
+        dists = results["distances"][0] if results.get("distances") else []
+
+        for d, m, dist in zip(docs, metas, dists):
+            similarity = round(max(0.0, 1.0 - dist), 4)
+            if similarity >= threshold:
+                item_name = m.get("name") or m.get("document_name") or m.get("skill_name") or "unknown"
+                matches.append({
+                    "name": item_name,
+                    "document_name": item_name,
+                    "skill_name": item_name,
+                    "similarity_score": similarity,
+                    "chunk_text": d,
+                    "text": d,
+                    "metadata": m
+                })
+
+        matches.sort(key=lambda x: x["similarity_score"], reverse=True)
+        matches = matches[:k]
+
+    # Log 2: Query Response
+    log_event(
+        invoker="Vector DB",
+        recipient=data.get("invoker", "agent"),
+        event_type="vector_db_query_response",
+        short_desc=f"Query {doc_type} DB response: {len(matches)} matches",
+        req_payload={},
+        resp_payload={
+            "service": "Vector DB",
+            "user_id": user_id,
+            "conversation_id": conv_id,
+            "date_time": datetime.now(timezone.utc).isoformat(),
+            "operation": "query_response",
+            "matched_items": [
+                {
+                    "name": m["name"],
+                    "similarity_score": m["similarity_score"],
+                    "chunk_text": m["chunk_text"][:200]
+                }
+                for m in matches
+            ]
+        },
         conv_id=conv_id
     )
 
     return jsonify({
         "status": "success",
-        "db_type": db_type,
-        "count": len(final_matches),
-        "results": final_matches
+        "type": doc_type,
+        "count": len(matches),
+        "results": matches
     })
 
-@app.route("/api/rag/documents/<path:doc_name>", methods=["DELETE"])
-def delete_document(doc_name):
-    api_key = request.headers.get("X-API-Key") or request.args.get("api_key")
-    is_valid, msg = check_auth(api_key, "write", invoker="web_ui")
-    if not is_valid:
-        return jsonify({"error": msg}), 403
-
-    # Find IDs for this document
-    all_data = doc_collection.get(include=["metadatas"])
-    ids_to_del = []
-    if all_data.get("ids") and all_data.get("metadatas"):
-        for i, m in zip(all_data["ids"], all_data["metadatas"]):
-            if m.get("document_name") == doc_name:
-                ids_to_del.append(i)
-
-    if ids_to_del:
-        doc_collection.delete(ids=ids_to_del)
-
-    log_event(
-        invoker="web_ui",
-        recipient="Vector Store Service",
-        event_type="document_delete",
-        short_desc=f"Deleted document '{doc_name}' ({len(ids_to_del)} chunks removed)",
-        req_payload={"document_name": doc_name},
-        resp_payload={"deleted_chunks": len(ids_to_del)}
-    )
-
-    return jsonify({"status": "success", "deleted_chunks": len(ids_to_del)})
-
+# 5. Reset Database
 @app.route("/api/rag/reset", methods=["POST"])
 def reset_database():
     api_key = request.headers.get("X-API-Key") or (request.get_json(silent=True) or {}).get("api_key")
@@ -362,10 +476,10 @@ def reset_database():
 
     log_event(
         invoker="web_ui",
-        recipient="Vector Store Service",
+        recipient="Vector DB",
         event_type="database_reset",
         short_desc="Reset document vector database",
-        req_payload={},
+        req_payload={"operation": "reset"},
         resp_payload={"status": "reset_complete"}
     )
 
@@ -391,8 +505,8 @@ def messages():
     if method == "tools/call":
         tool_name = params.get("name")
         args = params.get("arguments", {})
-        if tool_name == "query_vector_db":
-            res = query_vector_db().get_json()
+        if tool_name == "query_vector_db" or tool_name == "query_documents":
+            res = query_documents().get_json()
             return jsonify({"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(res)}]}})
 
     return jsonify({"jsonrpc": "2.0", "id": req_id, "result": {}})
