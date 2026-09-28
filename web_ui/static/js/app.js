@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   shutdownConfirmInput.addEventListener('input', () => {
-    btnConfirmShutdown.disabled = (shutdownConfirmInput.value.trim() !== 'Shutdown the service');
+    btnConfirmShutdown.disabled = (shutdownConfirmInput.value.trim() !== 'Shutdown the services');
   });
 
   btnCancelShutdown.addEventListener('click', () => {
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await fetch('/api/shutdown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: 'Shutdown the service' }),
+        body: JSON.stringify({ confirmation: 'Shutdown the services', phrase: 'Shutdown the services' }),
       });
       document.body.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0e17;color:#f1f5f9;font-family:sans-serif;">
@@ -1212,6 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // AUTHENTICATION & LOGIN FLOW
   // ---------------------------------------------------------------------------
   const loginModal = document.getElementById('loginModal');
@@ -1219,7 +1220,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginPassword = document.getElementById('loginPassword');
   const btnLoginOk = document.getElementById('btnLoginOk');
   const btnLoginCancel = document.getElementById('btnLoginCancel');
+  const btnOpenRegisterModal = document.getElementById('btnOpenRegisterModal');
   const loginErrorMsg = document.getElementById('loginErrorMsg');
+
+  const registerModal = document.getElementById('registerModal');
+  const regUsername = document.getElementById('regUsername');
+  const regPassword = document.getElementById('regPassword');
+  const btnRegAdd = document.getElementById('btnRegAdd');
+  const btnRegCancel = document.getElementById('btnRegCancel');
+  const registerAlertMsg = document.getElementById('registerAlertMsg');
+
+  const exitScreen = document.getElementById('exitScreen');
+  const btnReopenApp = document.getElementById('btnReopenApp');
+
   const headerUserEmail = document.getElementById('headerUserEmail');
   const headerUserRole = document.getElementById('headerUserRole');
   const btnLogout = document.getElementById('btnLogout');
@@ -1236,13 +1249,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyRolePermissions(user) {
     if (!user) return;
     const role = (user.role || 'User').toLowerCase();
-    headerUserEmail.textContent = user.email || 'admin';
-    headerUserRole.textContent = user.role || 'User';
-    headerUserRole.className = `user-profile-badge badge-${role}`;
+    if (headerUserEmail) headerUserEmail.textContent = user.email || 'admin';
+    if (headerUserRole) {
+      headerUserRole.textContent = user.role || 'User';
+      headerUserRole.className = `user-profile-badge badge-${role}`;
+    }
 
-    profileEmail.textContent = user.email || 'admin';
-    profileRole.textContent = user.role || 'User';
-    profileRole.className = `user-profile-badge badge-${role}`;
+    if (profileEmail) profileEmail.textContent = user.email || 'admin';
+    if (profileRole) {
+      profileRole.textContent = user.role || 'User';
+      profileRole.className = `user-profile-badge badge-${role}`;
+    }
 
     if (role === 'admin') {
       tabVector.style.display = '';
@@ -1268,6 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function handleLogin() {
     loginErrorMsg.classList.add('hidden');
+    loginErrorMsg.style.color = '#ef4444';
     const u = loginUsername.value.trim();
     const p = loginPassword.value;
 
@@ -1290,10 +1308,16 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
         loginModal.style.display = 'none';
         applyRolePermissions(currentUser);
-        logPageView('Chat & Knowledge Synthesis');
+        logPageView('Chat & Knowledge Mgnt');
       } else {
-        loginErrorMsg.textContent = data.error || 'Invalid username or password.';
+        if (resp.status === 403 || data.is_locked || (data.error && data.error.includes('Locked'))) {
+          loginErrorMsg.textContent = 'Account is Locked. Please contact the administrator.';
+        } else {
+          loginErrorMsg.textContent = 'Invalid username or password.';
+        }
         loginErrorMsg.classList.remove('hidden');
+        loginPassword.value = '';
+        loginPassword.focus();
       }
     } catch (e) {
       loginErrorMsg.textContent = 'Connection to authentication service failed.';
@@ -1304,19 +1328,88 @@ document.addEventListener('DOMContentLoaded', () => {
   btnLoginOk.addEventListener('click', handleLogin);
   loginPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
 
+  // Cancel on Login window: display "Thank you for using the app" and exit
   btnLoginCancel.addEventListener('click', () => {
-    alert('Access to the console requires logging in. Reload the page to sign in.');
-    window.location.reload();
+    loginModal.style.display = 'none';
+    if (exitScreen) exitScreen.classList.remove('hidden');
   });
 
-  btnLogout.addEventListener('click', async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {}
-    sessionStorage.removeItem('currentUser');
-    currentUser = null;
-    loginModal.style.display = 'flex';
-  });
+  if (btnReopenApp) {
+    btnReopenApp.addEventListener('click', () => {
+      exitScreen.classList.add('hidden');
+      loginModal.style.display = 'flex';
+      loginUsername.focus();
+    });
+  }
+
+  // Create New Account flow
+  if (btnOpenRegisterModal) {
+    btnOpenRegisterModal.addEventListener('click', () => {
+      if (regUsername) regUsername.value = '';
+      if (regPassword) regPassword.value = '';
+      if (registerAlertMsg) registerAlertMsg.classList.add('hidden');
+      if (registerModal) registerModal.classList.remove('hidden');
+      if (regUsername) regUsername.focus();
+    });
+  }
+
+  if (btnRegCancel) {
+    btnRegCancel.addEventListener('click', () => {
+      if (registerModal) registerModal.classList.add('hidden');
+    });
+  }
+
+  if (btnRegAdd) {
+    btnRegAdd.addEventListener('click', async () => {
+      const u = regUsername.value.trim();
+      const p = regPassword.value;
+      if (!u || !p) {
+        registerAlertMsg.textContent = 'Please enter both username and password.';
+        registerAlertMsg.style.color = '#ef4444';
+        registerAlertMsg.classList.remove('hidden');
+        return;
+      }
+      try {
+        const resp = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await resp.json();
+        if (resp.ok && data.status === 'success') {
+          registerModal.classList.add('hidden');
+          loginUsername.value = u;
+          loginPassword.value = '';
+          loginErrorMsg.textContent = 'Account created with Locked status. Please contact the administrator to unlock.';
+          loginErrorMsg.style.color = '#f59e0b';
+          loginErrorMsg.classList.remove('hidden');
+        } else {
+          registerAlertMsg.textContent = data.error || 'Failed to create account.';
+          registerAlertMsg.style.color = '#ef4444';
+          registerAlertMsg.classList.remove('hidden');
+        }
+      } catch (e) {
+        registerAlertMsg.textContent = 'Failed to connect to authentication service.';
+        registerAlertMsg.style.color = '#ef4444';
+        registerAlertMsg.classList.remove('hidden');
+      }
+    });
+  }
+
+  // Logout button: close current tab and go to login window
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      } catch (e) {}
+      sessionStorage.removeItem('currentUser');
+      currentUser = null;
+      loginErrorMsg.classList.add('hidden');
+      loginPassword.value = '';
+      loginModal.style.display = 'flex';
+      loginUsername.focus();
+    });
+  }
 
   if (currentUser) {
     loginModal.style.display = 'none';
@@ -1490,7 +1583,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await fetch('/api/containers/shutdown_all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phrase: 'Shutdown System' })
+        body: JSON.stringify({ phrase: 'Shutdown the services' })
       });
       shutdownAllModal.classList.add('hidden');
       alert('All system containers shut down.');
@@ -1556,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
       usersTbody.innerHTML = '';
       (data.users || []).forEach(u => {
         const tr = document.createElement('tr');
+        const isLocked = (u.status === 'Locked');
         tr.innerHTML = `
           <td><strong>${escapeHtml(u.email)}</strong></td>
           <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
@@ -1567,6 +1661,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </select>
           </td>
           <td>
+            <span class="badge ${isLocked ? 'badge-locked' : 'badge-active'}">${u.status || 'Active'}</span>
+            <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem; margin-left:4px;" onclick="toggleUserStatus(${u.id}, '${isLocked ? 'Active' : 'Locked'}')">
+              ${isLocked ? 'Unlock' : 'Lock'}
+            </button>
+          </td>
+          <td>
             <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="resetUserPassword(${u.id})">Reset Pass</button>
             <button class="btn-danger" style="padding:2px 8px; font-size:0.75rem;" onclick="deleteUser(${u.id})">Delete</button>
           </td>
@@ -1575,6 +1675,16 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     } catch (e) {}
   }
+
+  window.toggleUserStatus = async (uid, newStatus) => {
+    await fetch(`/api/users/${uid}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    loadUsers();
+    loadUserActivity();
+  };
 
   window.updateUserRole = async (uid, newRole) => {
     await fetch(`/api/users/${uid}/role`, {
@@ -1602,6 +1712,59 @@ document.addEventListener('DOMContentLoaded', () => {
     await fetch(`/api/users/${uid}`, { method: 'DELETE' });
     loadUsers();
   };
+
+  // Generate API key popup in Passwords tab
+  const btnOpenUserKeyModal = document.getElementById('btnOpenUserKeyModal');
+  const userKeyModal = document.getElementById('userKeyModal');
+  const btnCloseUserKeyModalX = document.getElementById('btnCloseUserKeyModalX');
+  const btnCancelUserKey = document.getElementById('btnCancelUserKey');
+  const btnProceedUserKey = document.getElementById('btnProceedUserKey');
+  const userKeyUsername = document.getElementById('userKeyUsername');
+  const userKeyContainerSelect = document.getElementById('userKeyContainerSelect');
+
+  if (btnOpenUserKeyModal) {
+    btnOpenUserKeyModal.onclick = () => {
+      userKeyUsername.value = '';
+      userKeyModal.classList.remove('hidden');
+      userKeyUsername.focus();
+    };
+  }
+  if (btnCloseUserKeyModalX) btnCloseUserKeyModalX.onclick = () => userKeyModal.classList.add('hidden');
+  if (btnCancelUserKey) btnCancelUserKey.onclick = () => userKeyModal.classList.add('hidden');
+
+  if (btnProceedUserKey) {
+    btnProceedUserKey.onclick = async () => {
+      const u = userKeyUsername.value.trim();
+      const container = userKeyContainerSelect.value;
+      if (!u) {
+        alert('Please enter a username for the API key');
+        return;
+      }
+      try {
+        const resp = await fetch('/api/keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key_name: `${u}_key`,
+            creator_email: currentUser ? currentUser.email : 'admin',
+            containers: [container],
+            access_levels: ['Admin']
+          })
+        });
+        const res = await resp.json();
+        userKeyModal.classList.add('hidden');
+        if (resp.ok && res.api_key) {
+          displayGeneratedKeyInput.value = res.api_key;
+          showKeyModal.classList.remove('hidden');
+          loadApiKeys();
+        } else {
+          alert(res.error || 'Failed to generate key');
+        }
+      } catch (e) {
+        alert('Error generating key: ' + e);
+      }
+    };
+  }
 
   // User Activity Logs Table
   const userActivityTbody = document.getElementById('userActivityTbody');

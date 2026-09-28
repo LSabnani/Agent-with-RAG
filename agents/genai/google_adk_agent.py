@@ -3,7 +3,10 @@ import time
 import json
 from datetime import datetime, timezone
 import requests
-from agents.custom_agent.custom_agent import CustomAgent
+try:
+    from custom_agent.custom_agent import CustomAgent
+except ModuleNotFoundError:
+    from agents.custom_agent.custom_agent import CustomAgent
 
 class GoogleADKAgent:
     """Google ADK LlmAgent wrapper implementing ADK agent workflows."""

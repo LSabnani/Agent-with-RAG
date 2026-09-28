@@ -17,12 +17,10 @@
       <img id="appIcon" src="/static/images/app-icon.gif" alt="App Icon" class="app-icon" onerror="this.style.display='none'">
       <div class="app-title-group">
         <h1 class="app-title">Agent With RAG</h1>
-        <span class="app-badge">Enterprise Console</span>
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <!-- Navigation Tabs (All 6 Pages) -->
+    <!-- Navigation Tabs (All 6 Pages + Logout) -->
     <nav class="nav-tabs" id="mainNavTabs">
       <button class="nav-tab active" data-target="page-chat">
         <span class="tab-icon">🗣️</span>
@@ -38,7 +36,7 @@
       </button>
       <button class="nav-tab" data-target="page-audit" id="tabAudit">
         <span class="tab-icon">📝</span>
-        <span class="tab-label">Audit Logs & Events</span>
+        <span class="tab-label">Log Viewer</span>
       </button>
       <button class="nav-tab" data-target="page-containers" id="tabContainers">
         <span class="tab-icon">🚢</span>
@@ -46,30 +44,21 @@
       </button>
       <button class="nav-tab" data-target="page-auth" id="tabAuth">
         <span class="tab-icon">🔑</span>
-        <span class="tab-label">Passwords & API keys</span>
+        <span class="tab-label">Password & API Mgnt</span>
+      </button>
+      <button class="nav-tab nav-tab-logout" id="btnLogout" title="Sign out of console">
+        <span class="tab-icon">🚪</span>
+        <span class="tab-label">Logout</span>
       </button>
     </nav>
 
-    <!-- Header Actions & Health Status -->
+    <!-- Header Actions -->
     <div class="header-right">
       <div class="user-header-info" id="userHeaderInfo">
         <span class="user-email-text" id="headerUserEmail">admin</span>
         <span class="user-profile-badge badge-admin" id="headerUserRole">Admin</span>
-        <button id="btnLogout" class="btn-logout" title="Sign out of console">Logout</button>
       </div>
-
-      <div class="status-box" id="globalStatusBox" title="Click to view detailed health">
-        <span class="status-dot online" id="statusDot"></span>
-        <span class="status-text" id="statusSummary">Agent: Online</span>
-        <div class="status-tooltip" id="statusTooltip">
-          <div class="tooltip-item"><span>Agent:</span> <strong id="tooltipAgent">Healthy</strong></div>
-          <div class="tooltip-item"><span>Ollama:</span> <strong id="tooltipOllama">Running</strong></div>
-          <div class="tooltip-item"><span>Model:</span> <strong id="tooltipEmbedder">nomic-embed-text</strong></div>
-          <div class="tooltip-item"><span>Vector DB:</span> <strong id="tooltipVector">Connected</strong></div>
-          <div class="tooltip-item"><span>LLM Provider:</span> <strong id="tooltipLlm">Configured</strong></div>
-        </div>
-      </div>
-      <button id="btnShutdown" class="btn-shutdown" title="Terminate application and services">
+      <button id="btnShutdown" class="btn-shutdown btn-shutdown-lightred" title="Shutdown the app and all the services">
         <span class="icon">🛑</span> Shutdown
       </button>
     </div>
@@ -85,7 +74,7 @@
       <!-- Page Sub-Header Controls -->
       <div class="page-subheader">
         <div class="page-title-area">
-          <h2 class="page-heading"><span class="heading-icon">💬</span> Chat & Knowledge Synthesis</h2>
+          <h2 class="page-heading"><span class="heading-icon">🗣️</span> Chat & Knowledge Mgnt</h2>
         </div>
         <div class="page-controls-area">
           <!-- Max Tokens -->
@@ -534,7 +523,7 @@
     <section id="page-audit" class="page-view">
       <div class="page-subheader">
         <div class="page-title-area">
-          <h2 class="page-heading"><span class="heading-icon">📜</span> Audit Log & Event</h2>
+          <h2 class="page-heading"><span class="heading-icon">📝</span> Log Viewer</h2>
         </div>
         <div class="page-controls-area">
           <button id="btnClearLogs" class="btn-danger-outline">
@@ -749,7 +738,7 @@
     <section id="page-auth" class="page-view">
       <div class="page-subheader">
         <div class="page-title-area">
-          <h2 class="page-heading"><span class="heading-icon">🔑</span> Passwords & API keys</h2>
+          <h2 class="page-heading"><span class="heading-icon">🔑</span> Password & API Mgnt</h2>
         </div>
       </div>
 
@@ -794,19 +783,23 @@
         <div class="subtab-content active" id="subtab-passwords">
           <!-- Table 1: All Users -->
           <div class="glass-card full-width-card mb-4">
-            <div class="card-header">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div class="card-title">
                 <span class="card-icon">👥</span> User Accounts Directory
               </div>
+              <button id="btnOpenUserKeyModal" class="btn-primary" style="padding: 0.4rem 1rem;">
+                <span class="icon">➕</span> Generate New API Key
+              </button>
             </div>
             <div class="card-body">
-              <div class="table-scroll-container" style="max-height: 240px; overflow-y: auto;">
+              <div class="table-scroll-container" style="max-height: 220px; overflow-y: auto;">
                 <table class="data-table" id="usersTable">
                   <thead>
                     <tr>
-                      <th>User Email</th>
+                      <th>User Name</th>
                       <th>Date / Time Created</th>
                       <th>Role</th>
+                      <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -826,7 +819,7 @@
               </div>
             </div>
             <div class="card-body">
-              <div class="table-scroll-container" style="max-height: 240px; overflow-y: auto;">
+              <div class="table-scroll-container" style="max-height: 220px; overflow-y: auto;">
                 <table class="data-table" id="userActivityTable">
                   <thead>
                     <tr>
@@ -897,10 +890,10 @@
       </div>
       <div class="modal-body">
         <p class="modal-alert-text">
-          Warning: This action will shutdown the app and all backend services started by it. All users will be affected by this action.
+          Warning: This will shutdown the app and all the services. All the users will be affected by this action.
         </p>
-        <p>To confirm, please type exactly <strong>Shutdown the service</strong> in the box below:</p>
-        <input type="text" id="shutdownConfirmInput" class="input-text" placeholder="Shutdown the service">
+        <p>To confirm, please type exactly <strong>Shutdown the services</strong> in the box below:</p>
+        <input type="text" id="shutdownConfirmInput" class="input-text" placeholder="Shutdown the services">
       </div>
       <div class="modal-footer">
         <button id="btnCancelShutdown" class="btn-secondary">Cancel</button>
@@ -996,29 +989,103 @@
 
   <!-- Modal 5: Login Popup Modal (Mandatory on load) -->
   <div class="modal-overlay" id="loginModal" style="display: flex;">
-    <div class="modal-box" style="max-width: 420px;">
+    <div class="modal-box" style="max-width: 440px;">
       <div class="modal-header">
-        <h3><span class="modal-icon">🔐</span> Sign In to Console</h3>
+        <h3><span class="modal-icon">🔐</span> Sign In</h3>
       </div>
       <div class="modal-body">
         <p class="text-muted" style="font-size: 0.88rem; margin-bottom: 1rem;">
-          Enter your credentials to access the Agent With RAG console. Default seed: <code>admin</code> / <code>admin123</code>
+          Enter your username and password to log in. Default seed: <code>admin</code> / <code>admin123</code>
         </p>
-        <div id="loginErrorMsg" class="modal-alert-text hidden" style="color: #ef4444; margin-bottom: 0.75rem;"></div>
+        <div id="loginErrorMsg" class="modal-alert-text hidden" style="color: #ef4444; margin-bottom: 0.75rem; font-size: 0.88rem;"></div>
         <div style="display: flex; flex-direction: column; gap: 0.85rem;">
           <div>
-            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Username / Email</label>
-            <input type="text" id="loginUsername" class="input-text" style="width: 100%;" placeholder="admin" value="admin">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Username</label>
+            <input type="text" id="loginUsername" class="input-text" style="width: 100%;" placeholder="Enter username" value="admin">
           </div>
           <div>
             <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Password</label>
-            <input type="password" id="loginPassword" class="input-text" style="width: 100%;" placeholder="••••••••" value="admin123">
+            <input type="password" id="loginPassword" class="input-text" style="width: 100%;" placeholder="Enter password" value="admin123">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+        <button id="btnOpenRegisterModal" class="btn-secondary" style="font-size: 0.82rem;">Create New Account</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button id="btnLoginCancel" class="btn-secondary">Cancel</button>
+          <button id="btnLoginOk" class="btn-primary">Ok</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5B: Create New Account Popup Window -->
+  <div class="modal-overlay hidden" id="registerModal" style="z-index: 1001;">
+    <div class="modal-box" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon">👤</span> Create New Account</h3>
+      </div>
+      <div class="modal-body">
+        <div id="registerAlertMsg" class="modal-alert-text hidden" style="margin-bottom: 0.75rem; font-size: 0.88rem;"></div>
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Username</label>
+            <input type="text" id="regUsername" class="input-text" style="width: 100%;" placeholder="Enter username">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Password</label>
+            <input type="password" id="regPassword" class="input-text" style="width: 100%;" placeholder="Enter password">
           </div>
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-        <button id="btnLoginCancel" class="btn-secondary">Cancel</button>
-        <button id="btnLoginOk" class="btn-primary">Ok</button>
+        <button id="btnRegCancel" class="btn-secondary">Cancel</button>
+        <button id="btnRegAdd" class="btn-primary">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5C: Exit Screen (When Cancel is clicked on login) -->
+  <div class="modal-overlay hidden" id="exitScreen" style="z-index: 2000; background: #0f172a;">
+    <div style="text-align: center; max-width: 500px; padding: 2.5rem; background: #1e293b; border-radius: 12px; border: 1.5px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+      <span style="font-size: 3.5rem; display: block; margin-bottom: 1rem;">👋</span>
+      <h2 style="color: #f8fafc; font-size: 1.6rem; font-weight: 700; margin-bottom: 0.75rem;">Thank you for using the app</h2>
+      <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 1.75rem;">The application has exited.</p>
+      <button id="btnReopenApp" class="btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.95rem;">Sign In Again</button>
+    </div>
+  </div>
+
+  <!-- Modal 5D: Generate API Key for User Popup Window -->
+  <div class="modal-overlay hidden" id="userKeyModal" style="z-index: 1001;">
+    <div class="modal-box" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon">🗝️</span> Generate API Key for User</h3>
+        <button id="btnCloseUserKeyModalX" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">User Name</label>
+            <input type="text" id="userKeyUsername" class="input-text" style="width: 100%;" placeholder="Enter username">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Target Container</label>
+            <select id="userKeyContainerSelect" class="input-text" style="width: 100%;">
+              <option value="all">All Containers</option>
+              <option value="web_ui">web_ui (Port 8000)</option>
+              <option value="auth_service">auth_service (Port 8001)</option>
+              <option value="agents">agents (Port 8002)</option>
+              <option value="doc_rag">doc_rag (Port 8003)</option>
+              <option value="tools">tools (Port 8005)</option>
+              <option value="logging">logging (Port 8006)</option>
+              <option value="ollama">ollama (Port 11434)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button id="btnCancelUserKey" class="btn-secondary">Cancel</button>
+        <button id="btnProceedUserKey" class="btn-primary">Generate</button>
       </div>
     </div>
   </div>

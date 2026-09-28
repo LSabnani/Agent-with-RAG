@@ -63,9 +63,16 @@ def init_db():
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'User',
+        status TEXT NOT NULL DEFAULT 'Active',
         created_at TEXT NOT NULL
     );
     """)
+
+    # Ensure status column exists if migrated
+    cursor.execute("PRAGMA table_info(users)")
+    cols = [r["name"] for r in cursor.fetchall()]
+    if "status" not in cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'Active'")
 
     # User access/requests logs table
     cursor.execute("""
@@ -116,6 +123,47 @@ init_db()
 def health():
     return jsonify({"status": "healthy", "service": "auth_service", "port": 8001})
 
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or data.get("email") or "").strip()
+    password = data.get("password") or ""
+    client_ip = request.remote_addr or data.get("ip_address", "127.0.0.1")
+
+    if not username or not password:
+        return jsonify({"status": "failed", "error": "Username and password required"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE email = ?", (username,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({"status": "failed", "error": "User already exists"}), 400
+
+    hashed = generate_password_hash(password)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    # When a new user account is created, it is initially set to "Locked" status.
+    cursor.execute(
+        "INSERT INTO users (email, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?)",
+        (username, hashed, "User", "Locked", now_iso)
+    )
+    cursor.execute(
+        "INSERT INTO user_activity_logs (user_email, request_type, status, ip_address, created_at) VALUES (?, ?, ?, ?, ?)",
+        (username, "New User Registration", "Success (Locked)", client_ip, now_iso)
+    )
+    conn.commit()
+    conn.close()
+
+    log_to_logging_container(
+        invoker=username,
+        recipient="auth_service",
+        event_type="user_registration",
+        short_desc="New user registered with Locked status",
+        payload={"username": username, "status": "Locked", "ip": client_ip}
+    )
+
+    return jsonify({"status": "success", "message": "Account created with Locked status. Please contact the administrator to unlock."}), 201
+
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
@@ -131,11 +179,18 @@ def login():
     status = "Failed"
     success = False
     role = "User"
+    user_status = "Active"
+    error_msg = "Invalid username or password."
 
     if user and check_password_hash(user["password_hash"], password):
-        status = "Success"
-        success = True
-        role = user["role"]
+        user_status = dict(user).get("status", "Active")
+        if user_status == "Locked":
+            status = "Locked"
+            error_msg = "Account is Locked. Please contact the administrator."
+        else:
+            status = "Success"
+            success = True
+            role = user["role"]
 
     # Record user access log
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -165,11 +220,14 @@ def login():
             "user": {
                 "email": username,
                 "role": role,
+                "status": user_status,
                 "storage_backend": "SQLite (auth_service/data/auth.db)"
             }
         })
+    elif status == "Locked":
+        return jsonify({"status": "failed", "error": error_msg, "is_locked": True}), 403
     else:
-        return jsonify({"status": "failed", "error": "Invalid username or password"}), 401
+        return jsonify({"status": "failed", "error": error_msg}), 401
 
 @app.route("/api/auth/logout", methods=["POST"])
 def logout():
@@ -201,10 +259,24 @@ def logout():
 def list_users():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, created_at FROM users ORDER BY id ASC")
+    cursor.execute("SELECT id, email, role, status, created_at FROM users ORDER BY id ASC")
     users = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify({"users": users})
+
+@app.route("/api/users/<int:user_id>/status", methods=["PUT"])
+def update_user_status(user_id):
+    data = request.get_json(silent=True) or {}
+    new_status = data.get("status")
+    if new_status not in ["Active", "Locked"]:
+        return jsonify({"error": "Invalid status"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, user_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success", "user_id": user_id, "new_status": new_status})
 
 @app.route("/api/users/<int:user_id>/role", methods=["PUT"])
 def update_user_role(user_id):

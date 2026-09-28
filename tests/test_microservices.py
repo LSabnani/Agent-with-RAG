@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import time
 import pytest
 
 import importlib.util
@@ -68,12 +69,34 @@ def test_auth_service():
     # Bad login
     bad_res = client.post("/api/auth/login", json={"username": "admin", "password": "wrongpassword"})
     assert bad_res.status_code == 401
+    assert "Invalid username or password" in bad_res.get_json()["error"]
 
-    # List users
+    # Register new user (initially Locked per specification)
+    uname = f"testuser_{int(time.time() * 1000)}"
+    reg_res = client.post("/api/auth/register", json={"username": uname, "password": "password123"})
+    assert reg_res.status_code == 201
+
+    # Attempt login with locked account -> must fail with 403 and Locked error
+    locked_login = client.post("/api/auth/login", json={"username": uname, "password": "password123"})
+    assert locked_login.status_code == 403
+    assert "Account is Locked" in locked_login.get_json()["error"]
+
+    # List users to find user id
     users_res = client.get("/api/users")
     assert users_res.status_code == 200
     users = users_res.get_json()["users"]
-    assert any(u["email"] == "admin" for u in users)
+    new_user = next((u for u in users if u["email"] == uname), None)
+    assert new_user is not None
+    assert new_user["status"] == "Locked"
+
+    # Unlock user via status endpoint
+    unlock_res = client.put(f"/api/users/{new_user['id']}/status", json={"status": "Active"})
+    assert unlock_res.status_code == 200
+
+    # Successful login after unlocking
+    unlocked_login = client.post("/api/auth/login", json={"username": uname, "password": "password123"})
+    assert unlocked_login.status_code == 200
+    assert unlocked_login.get_json()["status"] == "success"
 
     # Generate API key
     key_res = client.post("/api/keys", json={

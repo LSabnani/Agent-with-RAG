@@ -15,9 +15,20 @@ if os.path.exists(env_path):
 else:
     load_dotenv()
 
-from agents.custom_agent.custom_agent import CustomAgent
-from agents.genai.google_adk_agent import GoogleADKAgent
-from agents.skills_loader import scan_and_load_skills
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+for p in [current_dir, parent_dir]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+try:
+    from custom_agent.custom_agent import CustomAgent
+    from genai.google_adk_agent import GoogleADKAgent
+    from skills_loader import scan_and_load_skills
+except ModuleNotFoundError:
+    from agents.custom_agent.custom_agent import CustomAgent
+    from agents.genai.google_adk_agent import GoogleADKAgent
+    from agents.skills_loader import scan_and_load_skills
 
 app = Flask(__name__)
 try:

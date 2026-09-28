@@ -285,11 +285,12 @@ select option:checked {
 }
 
 /* Light Red Shutdown Button */
-.btn-shutdown {
-  background: #7f1d1d;
-  color: #fecaca;
+.btn-shutdown,
+.btn-shutdown-lightred {
+  background: #f87171;
+  color: #1e293b;
   border: 1.5px solid #ef4444;
-  padding: 0.45rem 0.95rem;
+  padding: 0.45rem 1rem;
   border-radius: var(--border-radius-md);
   font-size: 0.85rem;
   font-weight: 700;
@@ -300,11 +301,42 @@ select option:checked {
   transition: all 0.2s ease;
 }
 
-.btn-shutdown:hover {
-  background: #b91c1c;
+.btn-shutdown:hover,
+.btn-shutdown-lightred:hover {
+  background: #ef4444;
   color: #ffffff;
-  border-color: #f87171;
-  box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+  border-color: #dc2626;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.6);
+}
+
+.nav-tab-logout {
+  color: #fca5a5 !important;
+  border: 1px solid rgba(248, 113, 113, 0.3) !important;
+}
+
+.nav-tab-logout:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.badge-active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid #10b981;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-locked {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid #ef4444;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 /* ===================================================================

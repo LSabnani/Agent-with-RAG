@@ -854,5 +854,2399 @@
     "output_tokens": 0,
     "model": "",
     "is_error": false
+  },
+  {
+    "id": "log_1790574819223_5213",
+    "timestamp": "2026-09-28T05:53:39.218103+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790574819237_829e",
+    "timestamp": "2026-09-28T05:53:39.232966+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_da5b79e7850a",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:53:39.232920+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108169_7138",
+    "timestamp": "2026-09-28T05:58:28.169065+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108387_fdf5",
+    "timestamp": "2026-09-28T05:58:28.384045+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108490_e97f",
+    "timestamp": "2026-09-28T05:58:28.488829+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Failed",
+    "payload": {
+      "username": "admin",
+      "status": "Failed",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108590_9ebc",
+    "timestamp": "2026-09-28T05:58:28.589154+00:00",
+    "type": "user_registration",
+    "invoker": "testuser_locked",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "New user registered with Locked status",
+    "payload": {
+      "username": "testuser_locked",
+      "status": "Locked",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108694_cbad",
+    "timestamp": "2026-09-28T05:58:28.693371+00:00",
+    "type": "user_login",
+    "invoker": "testuser_locked",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Locked",
+    "payload": {
+      "username": "testuser_locked",
+      "status": "Locked",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108800_f344",
+    "timestamp": "2026-09-28T05:58:28.797493+00:00",
+    "type": "user_login",
+    "invoker": "testuser_locked",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "testuser_locked",
+      "status": "Success",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108807_2b45",
+    "timestamp": "2026-09-28T05:58:28.805927+00:00",
+    "type": "api_key_generation",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "Generated API key 'Test Key'",
+    "payload": {
+      "key_name": "Test Key",
+      "containers": [
+        "tools",
+        "doc_rag"
+      ],
+      "access_levels": [
+        "Read",
+        "Write"
+      ]
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108812_6395",
+    "timestamp": "2026-09-28T05:58:28.811187+00:00",
+    "type": "api_key_validation",
+    "invoker": "Test Key",
+    "recipient": "tools",
+    "conversation_id": null,
+    "short_description": "API key validation: Success",
+    "payload": {
+      "container": "tools",
+      "key_name": "Test Key",
+      "user_name": "admin",
+      "ip_address": "127.0.0.1",
+      "request_type": "api_call",
+      "granted_level": "Read",
+      "required_level": "read",
+      "result": "success"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108822_da11",
+    "timestamp": "2026-09-28T05:58:28.820805+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: person_search.query_person_registry",
+    "payload": {
+      "tool": "person_search.query_person_registry",
+      "arguments": {
+        "field": "name",
+        "keyword": "Dubois"
+      },
+      "request": {
+        "arguments": {
+          "field": "name",
+          "keyword": "Dubois"
+        },
+        "conversation_id": "test_conv",
+        "tool": "person_search.query_person_registry"
+      },
+      "response": {
+        "count": 1,
+        "results": [
+          {
+            "name": "Lucas Dubois",
+            "city": "Paris",
+            "country": "France",
+            "job_title": "Senior AI Engineer"
+          }
+        ]
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108827_13ba",
+    "timestamp": "2026-09-28T05:58:28.825671+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: stock_search.query_stocks",
+    "payload": {
+      "tool": "stock_search.query_stocks",
+      "arguments": {
+        "action": "gainers",
+        "limit": 3
+      },
+      "request": {
+        "arguments": {
+          "action": "gainers",
+          "limit": 3
+        },
+        "conversation_id": "test_conv",
+        "tool": "stock_search.query_stocks"
+      },
+      "response": {
+        "action": "highest_percentage_increase",
+        "count": 3,
+        "results": [
+          {
+            "symbol": "PLTR",
+            "name": "Palantir Technologies",
+            "price": 39.46,
+            "change_pct": 8.42
+          },
+          {
+            "symbol": "AMD",
+            "name": "Advanced Micro Devices",
+            "price": 159.31,
+            "change_pct": 6.35
+          },
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "price": 125.4,
+            "change_pct": 5.82
+          }
+        ],
+        "status": "success"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108870_cda6",
+    "timestamp": "2026-09-28T05:58:28.868231+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'time-weather-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "time-weather-skill",
+        "vector_text": "time-weather-skill: Get the current real-time weather and local time for any specified city or location worldwide without requiring any API key. Use this skill whenever the user asks about weather, temperature, forecasts, conditions, or the local time in a city."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_17a0cc1ea688940382852087508860ba"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108891_309d",
+    "timestamp": "2026-09-28T05:58:28.889373+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'person-information-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "person-information-skill",
+        "vector_text": "person-information-skill: Search and lookup personal directory records including employee name, city, country, or job title from the company registry CSV file. Use this skill whenever the user asks about people, personnel, employees, job titles, or someone's location."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_b22fa75c34ededf2d77b3e1d79d9b218"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108910_8a08",
+    "timestamp": "2026-09-28T05:58:28.908467+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'document-search-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "document-search-skill",
+        "vector_text": "document-search-skill: Get the list of text chunks from the document vector database. Use this tool whenever the user asks questions about company documents, marketing strategy, financial reports, Agent and RAG architecture, or any topic that requires factual information from the private knowledge base."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_d048a8a370689380dc97bb8beb4929dc"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575108934_db5d",
+    "timestamp": "2026-09-28T05:58:28.931241+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'stock-market-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "stock-market-skill",
+        "vector_text": "stock-market-skill: Analyze market equities and retrieve the list of stocks with the highest percentage increase (top gainers), lowest percentage decrease / biggest drop (top losers), or detailed quotes for specific tickers. Use this skill whenever the user asks about stock market performance, gainers, losers, ticker prices, or equity percentage changes."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_f57e2fc2230d2a1c62a22dd9b0fe0fce"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575197535_c7b2",
+    "timestamp": "2026-09-28T05:59:57.532946+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575197542_2c2b",
+    "timestamp": "2026-09-28T05:59:57.540668+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e572ecaa94e8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:59:57.540648+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575197553_94d6",
+    "timestamp": "2026-09-28T05:59:57.551731+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Synthesis",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e572ecaa94e8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T05:59:57.551714+00:00",
+      "page_name": "Chat & Knowledge Synthesis"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575528035_0179",
+    "timestamp": "2026-09-28T06:05:28.024341+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Container Mgr",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e572ecaa94e8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:05:28.024296+00:00",
+      "page_name": "Container Mgr"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575716441_c01c",
+    "timestamp": "2026-09-28T06:08:36.439769+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Logout",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e572ecaa94e8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:08:36.439752+00:00",
+      "page_name": "Logout"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575716460_96a8",
+    "timestamp": "2026-09-28T06:08:36.454193+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575716476_d98c",
+    "timestamp": "2026-09-28T06:08:36.471607+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e572ecaa94e8",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:08:36.471562+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575723295_8cab",
+    "timestamp": "2026-09-28T06:08:43.293621+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575723301_7845",
+    "timestamp": "2026-09-28T06:08:43.300074+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e05064ad674d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:08:43.300059+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575723311_434c",
+    "timestamp": "2026-09-28T06:08:43.309033+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Mgnt",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e05064ad674d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:08:43.309012+00:00",
+      "page_name": "Chat & Knowledge Mgnt"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575738210_afa5",
+    "timestamp": "2026-09-28T06:08:58.205894+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Mgnt",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e05064ad674d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:08:58.205848+00:00",
+      "page_name": "Chat & Knowledge Mgnt"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575740180_f7ab",
+    "timestamp": "2026-09-28T06:09:00.177916+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Password & API Mgnt",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e05064ad674d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:09:00.177899+00:00",
+      "page_name": "Password & API Mgnt"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575761541_5d1e",
+    "timestamp": "2026-09-28T06:09:21.539618+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Logout",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e05064ad674d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:09:21.539600+00:00",
+      "page_name": "Logout"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575761546_5e28",
+    "timestamp": "2026-09-28T06:09:21.544088+00:00",
+    "type": "user_logout",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User logout",
+    "payload": {
+      "username": "admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575761552_f34c",
+    "timestamp": "2026-09-28T06:09:21.550696+00:00",
+    "type": "user_session_logout",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged out",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_e05064ad674d",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:09:21.550678+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575785436_29c8",
+    "timestamp": "2026-09-28T06:09:45.434707+00:00",
+    "type": "user_registration",
+    "invoker": "test_user",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "New user registered with Locked status",
+    "payload": {
+      "username": "test_user",
+      "status": "Locked",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575811607_7ee5",
+    "timestamp": "2026-09-28T06:10:11.605978+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "172.20.0.7"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575811613_2529",
+    "timestamp": "2026-09-28T06:10:11.611801+00:00",
+    "type": "user_session_login",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "User admin logged in",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:10:11.611786+00:00"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575811624_4fd1",
+    "timestamp": "2026-09-28T06:10:11.622272+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Chat & Knowledge Mgnt",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:10:11.622257+00:00",
+      "page_name": "Chat & Knowledge Mgnt"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575816440_f19e",
+    "timestamp": "2026-09-28T06:10:16.427679+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Password & API Mgnt",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:10:16.427637+00:00",
+      "page_name": "Password & API Mgnt"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575822014_e2e0",
+    "timestamp": "2026-09-28T06:10:22.008459+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Password & API Mgnt",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:10:22.008435+00:00",
+      "page_name": "Password & API Mgnt"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575862196_a604",
+    "timestamp": "2026-09-28T06:11:02.190982+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Log Viewer",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:11:02.190940+00:00",
+      "page_name": "Log Viewer"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575868257_6067",
+    "timestamp": "2026-09-28T06:11:08.254470+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Log Viewer",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:11:08.254455+00:00",
+      "page_name": "Log Viewer"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790575873209_1b5b",
+    "timestamp": "2026-09-28T06:11:13.207464+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Telemetry",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:11:13.207449+00:00",
+      "page_name": "Telemetry"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126541_21fb",
+    "timestamp": "2026-09-28T06:15:26.539530+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "time-weather-skill: Get the current real-time weather and local time for any spe"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 588
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126568_1029",
+    "timestamp": "2026-09-28T06:15:26.565935+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'time-weather-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "time-weather-skill",
+        "vector_text": "time-weather-skill: Get the current real-time weather and local time for any specified city or location worldwide without requiring any API key. Use this skill whenever the user asks about weather, temperature, forecasts, conditions, or the local time in a city."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_17a0cc1ea688940382852087508860ba"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126642_0ccf",
+    "timestamp": "2026-09-28T06:15:26.640509+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "person-information-skill: Search and lookup personal directory records including"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 63
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126656_d1c3",
+    "timestamp": "2026-09-28T06:15:26.655020+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'person-information-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "person-information-skill",
+        "vector_text": "person-information-skill: Search and lookup personal directory records including employee name, city, country, or job title from the company registry CSV file. Use this skill whenever the user asks about people, personnel, employees, job titles, or someone's location."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_b22fa75c34ededf2d77b3e1d79d9b218"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126727_9812",
+    "timestamp": "2026-09-28T06:15:26.725345+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "document-search-skill: Get the list of text chunks from the document vector data"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 61
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126741_b0f4",
+    "timestamp": "2026-09-28T06:15:26.739897+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'document-search-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "document-search-skill",
+        "vector_text": "document-search-skill: Get the list of text chunks from the document vector database. Use this tool whenever the user asks questions about company documents, marketing strategy, financial reports, Agent and RAG architecture, or any topic that requires factual information from the private knowledge base."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_d048a8a370689380dc97bb8beb4929dc"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126831_82d1",
+    "timestamp": "2026-09-28T06:15:26.829694+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "stock-market-skill: Analyze market equities and retrieve the list of stocks with"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 80
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576126846_6ec7",
+    "timestamp": "2026-09-28T06:15:26.844199+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'stock-market-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "stock-market-skill",
+        "vector_text": "stock-market-skill: Analyze market equities and retrieve the list of stocks with the highest percentage increase (top gainers), lowest percentage decrease / biggest drop (top losers), or detailed quotes for specific tickers. Use this skill whenever the user asks about stock market performance, gainers, losers, ticker prices, or equity percentage changes."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_f57e2fc2230d2a1c62a22dd9b0fe0fce"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164102_4e36",
+    "timestamp": "2026-09-28T06:16:04.102625+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164272_7131",
+    "timestamp": "2026-09-28T06:16:04.270183+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164365_69a8",
+    "timestamp": "2026-09-28T06:16:04.363354+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Failed",
+    "payload": {
+      "username": "admin",
+      "status": "Failed",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164390_7738",
+    "timestamp": "2026-09-28T06:16:04.388981+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: person_search.query_person_registry",
+    "payload": {
+      "tool": "person_search.query_person_registry",
+      "arguments": {
+        "field": "name",
+        "keyword": "Dubois"
+      },
+      "request": {
+        "arguments": {
+          "field": "name",
+          "keyword": "Dubois"
+        },
+        "conversation_id": "test_conv",
+        "tool": "person_search.query_person_registry"
+      },
+      "response": {
+        "count": 1,
+        "results": [
+          {
+            "name": "Lucas Dubois",
+            "city": "Paris",
+            "country": "France",
+            "job_title": "Senior AI Engineer"
+          }
+        ]
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164396_14ad",
+    "timestamp": "2026-09-28T06:16:04.394820+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: stock_search.query_stocks",
+    "payload": {
+      "tool": "stock_search.query_stocks",
+      "arguments": {
+        "action": "gainers",
+        "limit": 3
+      },
+      "request": {
+        "arguments": {
+          "action": "gainers",
+          "limit": 3
+        },
+        "conversation_id": "test_conv",
+        "tool": "stock_search.query_stocks"
+      },
+      "response": {
+        "action": "highest_percentage_increase",
+        "count": 3,
+        "results": [
+          {
+            "symbol": "PLTR",
+            "name": "Palantir Technologies",
+            "price": 39.46,
+            "change_pct": 8.42
+          },
+          {
+            "symbol": "AMD",
+            "name": "Advanced Micro Devices",
+            "price": 159.31,
+            "change_pct": 6.35
+          },
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "price": 125.4,
+            "change_pct": 5.82
+          }
+        ],
+        "status": "success"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164489_3074",
+    "timestamp": "2026-09-28T06:16:04.487216+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "time-weather-skill: Get the current real-time weather and local time for any spe"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 69
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164503_e871",
+    "timestamp": "2026-09-28T06:16:04.502218+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'time-weather-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "time-weather-skill",
+        "vector_text": "time-weather-skill: Get the current real-time weather and local time for any specified city or location worldwide without requiring any API key. Use this skill whenever the user asks about weather, temperature, forecasts, conditions, or the local time in a city."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_17a0cc1ea688940382852087508860ba"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164574_4697",
+    "timestamp": "2026-09-28T06:16:04.572830+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "person-information-skill: Search and lookup personal directory records including"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 61
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164588_c8c0",
+    "timestamp": "2026-09-28T06:16:04.587147+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'person-information-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "person-information-skill",
+        "vector_text": "person-information-skill: Search and lookup personal directory records including employee name, city, country, or job title from the company registry CSV file. Use this skill whenever the user asks about people, personnel, employees, job titles, or someone's location."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_b22fa75c34ededf2d77b3e1d79d9b218"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164659_ebc0",
+    "timestamp": "2026-09-28T06:16:04.657331+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "document-search-skill: Get the list of text chunks from the document vector data"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 60
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164674_572d",
+    "timestamp": "2026-09-28T06:16:04.672743+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'document-search-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "document-search-skill",
+        "vector_text": "document-search-skill: Get the list of text chunks from the document vector database. Use this tool whenever the user asks questions about company documents, marketing strategy, financial reports, Agent and RAG architecture, or any topic that requires factual information from the private knowledge base."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_d048a8a370689380dc97bb8beb4929dc"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164761_cef9",
+    "timestamp": "2026-09-28T06:16:04.759503+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "stock-market-skill: Analyze market equities and retrieve the list of stocks with"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 77
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576164775_a9b2",
+    "timestamp": "2026-09-28T06:16:04.774195+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'stock-market-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "stock-market-skill",
+        "vector_text": "stock-market-skill: Analyze market equities and retrieve the list of stocks with the highest percentage increase (top gainers), lowest percentage decrease / biggest drop (top losers), or detailed quotes for specific tickers. Use this skill whenever the user asks about stock market performance, gainers, losers, ticker prices, or equity percentage changes."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_f57e2fc2230d2a1c62a22dd9b0fe0fce"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186373_3203",
+    "timestamp": "2026-09-28T06:16:26.373693+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186545_f3f6",
+    "timestamp": "2026-09-28T06:16:26.541777+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186639_4b00",
+    "timestamp": "2026-09-28T06:16:26.637792+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Failed",
+    "payload": {
+      "username": "admin",
+      "status": "Failed",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186665_48ca",
+    "timestamp": "2026-09-28T06:16:26.663484+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: person_search.query_person_registry",
+    "payload": {
+      "tool": "person_search.query_person_registry",
+      "arguments": {
+        "field": "name",
+        "keyword": "Dubois"
+      },
+      "request": {
+        "arguments": {
+          "field": "name",
+          "keyword": "Dubois"
+        },
+        "conversation_id": "test_conv",
+        "tool": "person_search.query_person_registry"
+      },
+      "response": {
+        "count": 1,
+        "results": [
+          {
+            "name": "Lucas Dubois",
+            "city": "Paris",
+            "country": "France",
+            "job_title": "Senior AI Engineer"
+          }
+        ]
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186672_af9d",
+    "timestamp": "2026-09-28T06:16:26.671314+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: stock_search.query_stocks",
+    "payload": {
+      "tool": "stock_search.query_stocks",
+      "arguments": {
+        "action": "gainers",
+        "limit": 3
+      },
+      "request": {
+        "arguments": {
+          "action": "gainers",
+          "limit": 3
+        },
+        "conversation_id": "test_conv",
+        "tool": "stock_search.query_stocks"
+      },
+      "response": {
+        "action": "highest_percentage_increase",
+        "count": 3,
+        "results": [
+          {
+            "symbol": "PLTR",
+            "name": "Palantir Technologies",
+            "price": 39.46,
+            "change_pct": 8.42
+          },
+          {
+            "symbol": "AMD",
+            "name": "Advanced Micro Devices",
+            "price": 159.31,
+            "change_pct": 6.35
+          },
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "price": 125.4,
+            "change_pct": 5.82
+          }
+        ],
+        "status": "success"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186758_df35",
+    "timestamp": "2026-09-28T06:16:26.756179+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "time-weather-skill: Get the current real-time weather and local time for any spe"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 64
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186773_e157",
+    "timestamp": "2026-09-28T06:16:26.772019+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'time-weather-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "time-weather-skill",
+        "vector_text": "time-weather-skill: Get the current real-time weather and local time for any specified city or location worldwide without requiring any API key. Use this skill whenever the user asks about weather, temperature, forecasts, conditions, or the local time in a city."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_17a0cc1ea688940382852087508860ba"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186841_9c53",
+    "timestamp": "2026-09-28T06:16:26.839239+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "person-information-skill: Search and lookup personal directory records including"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 57
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186856_4cf6",
+    "timestamp": "2026-09-28T06:16:26.854481+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'person-information-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "person-information-skill",
+        "vector_text": "person-information-skill: Search and lookup personal directory records including employee name, city, country, or job title from the company registry CSV file. Use this skill whenever the user asks about people, personnel, employees, job titles, or someone's location."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_b22fa75c34ededf2d77b3e1d79d9b218"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186921_838a",
+    "timestamp": "2026-09-28T06:16:26.919745+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "document-search-skill: Get the list of text chunks from the document vector data"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 55
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576186936_ced7",
+    "timestamp": "2026-09-28T06:16:26.935054+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'document-search-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "document-search-skill",
+        "vector_text": "document-search-skill: Get the list of text chunks from the document vector database. Use this tool whenever the user asks questions about company documents, marketing strategy, financial reports, Agent and RAG architecture, or any topic that requires factual information from the private knowledge base."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_d048a8a370689380dc97bb8beb4929dc"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576187015_d99b",
+    "timestamp": "2026-09-28T06:16:27.014083+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "stock-market-skill: Analyze market equities and retrieve the list of stocks with"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 69
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576187034_273a",
+    "timestamp": "2026-09-28T06:16:27.032421+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'stock-market-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "stock-market-skill",
+        "vector_text": "stock-market-skill: Analyze market equities and retrieve the list of stocks with the highest percentage increase (top gainers), lowest percentage decrease / biggest drop (top losers), or detailed quotes for specific tickers. Use this skill whenever the user asks about stock market performance, gainers, losers, ticker prices, or equity percentage changes."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_f57e2fc2230d2a1c62a22dd9b0fe0fce"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576233556_b5c5",
+    "timestamp": "2026-09-28T06:17:13.556098+00:00",
+    "type": "test_event",
+    "invoker": "unit_test",
+    "recipient": "logging",
+    "conversation_id": "test_conv_123",
+    "short_description": "Unit test log",
+    "payload": {
+      "api_key": "****",
+      "data": "test_payload"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576233730_e654",
+    "timestamp": "2026-09-28T06:17:13.727874+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "admin",
+      "status": "Success",
+      "role": "Admin",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576233829_6afa",
+    "timestamp": "2026-09-28T06:17:13.827625+00:00",
+    "type": "user_login",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Failed",
+    "payload": {
+      "username": "admin",
+      "status": "Failed",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576233929_da47",
+    "timestamp": "2026-09-28T06:17:13.928040+00:00",
+    "type": "user_registration",
+    "invoker": "testuser_1790576233834",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "New user registered with Locked status",
+    "payload": {
+      "username": "testuser_1790576233834",
+      "status": "Locked",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234025_a95a",
+    "timestamp": "2026-09-28T06:17:14.023783+00:00",
+    "type": "user_login",
+    "invoker": "testuser_1790576233834",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Locked",
+    "payload": {
+      "username": "testuser_1790576233834",
+      "status": "Locked",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "failure",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234122_4455",
+    "timestamp": "2026-09-28T06:17:14.120544+00:00",
+    "type": "user_login",
+    "invoker": "testuser_1790576233834",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "User login attempt: Success",
+    "payload": {
+      "username": "testuser_1790576233834",
+      "status": "Success",
+      "role": "User",
+      "ip": "127.0.0.1"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234131_8d8b",
+    "timestamp": "2026-09-28T06:17:14.129137+00:00",
+    "type": "api_key_generation",
+    "invoker": "admin",
+    "recipient": "auth_service",
+    "conversation_id": null,
+    "short_description": "Generated API key 'Test Key'",
+    "payload": {
+      "key_name": "Test Key",
+      "containers": [
+        "tools",
+        "doc_rag"
+      ],
+      "access_levels": [
+        "Read",
+        "Write"
+      ]
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234138_e84b",
+    "timestamp": "2026-09-28T06:17:14.137595+00:00",
+    "type": "api_key_validation",
+    "invoker": "Test Key",
+    "recipient": "tools",
+    "conversation_id": null,
+    "short_description": "API key validation: Success",
+    "payload": {
+      "container": "tools",
+      "key_name": "Test Key",
+      "user_name": "admin",
+      "ip_address": "127.0.0.1",
+      "request_type": "api_call",
+      "granted_level": "Read",
+      "required_level": "read",
+      "result": "success"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234152_bc3c",
+    "timestamp": "2026-09-28T06:17:14.150693+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: person_search.query_person_registry",
+    "payload": {
+      "tool": "person_search.query_person_registry",
+      "arguments": {
+        "field": "name",
+        "keyword": "Dubois"
+      },
+      "request": {
+        "arguments": {
+          "field": "name",
+          "keyword": "Dubois"
+        },
+        "conversation_id": "test_conv",
+        "tool": "person_search.query_person_registry"
+      },
+      "response": {
+        "count": 1,
+        "results": [
+          {
+            "name": "Lucas Dubois",
+            "city": "Paris",
+            "country": "France",
+            "job_title": "Senior AI Engineer"
+          }
+        ]
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234160_a9f6",
+    "timestamp": "2026-09-28T06:17:14.158476+00:00",
+    "type": "tool_call",
+    "invoker": "agent",
+    "recipient": "tools",
+    "conversation_id": "test_conv",
+    "short_description": "Tool execution: stock_search.query_stocks",
+    "payload": {
+      "tool": "stock_search.query_stocks",
+      "arguments": {
+        "action": "gainers",
+        "limit": 3
+      },
+      "request": {
+        "arguments": {
+          "action": "gainers",
+          "limit": 3
+        },
+        "conversation_id": "test_conv",
+        "tool": "stock_search.query_stocks"
+      },
+      "response": {
+        "action": "highest_percentage_increase",
+        "count": 3,
+        "results": [
+          {
+            "symbol": "PLTR",
+            "name": "Palantir Technologies",
+            "price": 39.46,
+            "change_pct": 8.42
+          },
+          {
+            "symbol": "AMD",
+            "name": "Advanced Micro Devices",
+            "price": 159.31,
+            "change_pct": 6.35
+          },
+          {
+            "symbol": "NVDA",
+            "name": "NVIDIA Corporation",
+            "price": 125.4,
+            "change_pct": 5.82
+          }
+        ],
+        "status": "success"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234251_abd3",
+    "timestamp": "2026-09-28T06:17:14.249913+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "time-weather-skill: Get the current real-time weather and local time for any spe"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 69
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234269_ff1a",
+    "timestamp": "2026-09-28T06:17:14.267361+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'time-weather-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "time-weather-skill",
+        "vector_text": "time-weather-skill: Get the current real-time weather and local time for any specified city or location worldwide without requiring any API key. Use this skill whenever the user asks about weather, temperature, forecasts, conditions, or the local time in a city."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_17a0cc1ea688940382852087508860ba"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234334_c06c",
+    "timestamp": "2026-09-28T06:17:14.332326+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "person-information-skill: Search and lookup personal directory records including"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 54
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234352_e69d",
+    "timestamp": "2026-09-28T06:17:14.350168+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'person-information-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "person-information-skill",
+        "vector_text": "person-information-skill: Search and lookup personal directory records including employee name, city, country, or job title from the company registry CSV file. Use this skill whenever the user asks about people, personnel, employees, job titles, or someone's location."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_b22fa75c34ededf2d77b3e1d79d9b218"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234417_1720",
+    "timestamp": "2026-09-28T06:17:14.416205+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "document-search-skill: Get the list of text chunks from the document vector data"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 54
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234433_e4aa",
+    "timestamp": "2026-09-28T06:17:14.432178+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'document-search-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "document-search-skill",
+        "vector_text": "document-search-skill: Get the list of text chunks from the document vector database. Use this tool whenever the user asks questions about company documents, marketing strategy, financial reports, Agent and RAG architecture, or any topic that requires factual information from the private knowledge base."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_d048a8a370689380dc97bb8beb4929dc"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234516_de5d",
+    "timestamp": "2026-09-28T06:17:14.514587+00:00",
+    "type": "embedding_request",
+    "invoker": "doc_RAG",
+    "recipient": "Embedding Service",
+    "conversation_id": null,
+    "short_description": "Generated vector via Ollama (nomic-embed-text)",
+    "payload": {
+      "request": {
+        "model": "nomic-embed-text",
+        "text_sample": "stock-market-skill: Analyze market equities and retrieve the list of stocks with"
+      },
+      "response": {
+        "dimension": 768,
+        "duration_ms": 71
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576234533_4d2e",
+    "timestamp": "2026-09-28T06:17:14.531237+00:00",
+    "type": "skill_ingest",
+    "invoker": "agent",
+    "recipient": "Vector Store Service",
+    "conversation_id": null,
+    "short_description": "Added skill 'stock-market-skill' to skill vector DB",
+    "payload": {
+      "request": {
+        "name": "stock-market-skill",
+        "vector_text": "stock-market-skill: Analyze market equities and retrieve the list of stocks with the highest percentage increase (top gainers), lowest percentage decrease / biggest drop (top losers), or detailed quotes for specific tickers. Use this skill whenever the user asks about stock market performance, gainers, losers, ticker prices, or equity percentage changes."
+      },
+      "response": {
+        "status": "stored",
+        "skill_id": "skill_f57e2fc2230d2a1c62a22dd9b0fe0fce"
+      }
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576459790_7ad0",
+    "timestamp": "2026-09-28T06:20:59.787283+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Container Mgr",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:20:59.787266+00:00",
+      "page_name": "Container Mgr"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576464046_989f",
+    "timestamp": "2026-09-28T06:21:04.043827+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Log Viewer",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:21:04.043812+00:00",
+      "page_name": "Log Viewer"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576465253_9f91",
+    "timestamp": "2026-09-28T06:21:05.251076+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Container Mgr",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:21:05.251034+00:00",
+      "page_name": "Container Mgr"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
+  },
+  {
+    "id": "log_1790576473151_f312",
+    "timestamp": "2026-09-28T06:21:13.148895+00:00",
+    "type": "page_view",
+    "invoker": "web_ui",
+    "recipient": "logging",
+    "conversation_id": null,
+    "short_description": "Page view: Log Viewer",
+    "payload": {
+      "user_name": "admin",
+      "session_id": "sess_1cd83deac147",
+      "ip_address": "172.20.0.1",
+      "time": "2026-09-28T06:21:13.148880+00:00",
+      "page_name": "Log Viewer"
+    },
+    "status": "success",
+    "duration_ms": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "model": "",
+    "is_error": false
   }
 ]

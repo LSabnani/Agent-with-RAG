@@ -138,6 +138,26 @@ def auth_logout():
     session.clear()
     return jsonify({"status": "success"})
 
+@app.route("/api/auth/register", methods=["POST"])
+def auth_register():
+    data = request.get_json(silent=True) or {}
+    data["ip_address"] = request.remote_addr
+    url = resolve_url(AUTH_URL, "auth_service", 8001)
+    try:
+        resp = requests.post(f"{url}/api/auth/register", json=data, timeout=5)
+        return jsonify(resp.json()), resp.status_code
+    except Exception as e:
+        return jsonify({"status": "failed", "error": f"Auth service unreachable: {e}"}), 502
+
+@app.route("/api/users/<int:uid>/status", methods=["PUT"])
+def proxy_update_user_status(uid):
+    url = resolve_url(AUTH_URL, "auth_service", 8001)
+    try:
+        r = requests.put(f"{url}/api/users/{uid}/status", json=request.get_json(silent=True), timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"status": "failed", "error": str(e)}), 502
+
 @app.route("/api/page_view", methods=["POST"])
 def log_page_view():
     data = request.get_json(silent=True) or {}
