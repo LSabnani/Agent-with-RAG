@@ -151,6 +151,6 @@ Access the Web Console at: **`http://localhost:8000`**
 ## 7. Sample Skills and Tools Included
 
 1. **`time-weather-skill`:** Real-time weather and local time lookup for any city worldwide using the free Open-Meteo public service.
-2. **`person-information-skill`:** Employee registry lookups across 30 records (`tools/data/employee_database.csv`) by name, city, country, or job title.
+2. **`person-information-skill`:** Employee registry lookups across 30 records (`tools/data/employee_database.csv`) using a list of search texts (or single search text) across name, city, country, or job title, returning deduplicated matching entries for all queried items.
 3. **`stock-market-skill`:** Real-time stock queries for top percentage gainers, losers, or equity quotes.
 4. **`document-search-skill`:** Vector search for top-$k$ text chunks from the ingested ChromaDB knowledge store.

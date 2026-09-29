@@ -58,7 +58,7 @@ Agent-with-RAG/
 │   ├── skills/                   # Discovered domain skills
 │   │   ├── time-weather-skill/   # Live time & weather queries
 │   │   ├── stock-analysis-skill/ # Financial market gainer/loser queries
-│   │   ├── person-search-skill/  # Employee database lookup
+│   │   ├── person-information-skill/  # Employee database lookup
 │   │   └── document-search-skill/# Vector knowledge base retrieval
 │   ├── Dockerfile
 │   └── server.py
@@ -204,7 +204,7 @@ The page layout uses `.split-cards-grid` with `grid-template-columns: 1fr 1fr; w
   - `Max RAG Chunks` dropdown: Options are `2`, `3`, `5` (Default), `7`, `10`. Defines maximum context chunks retrieved from vector store.
   - `Doc Threshold` input: Numeric similarity threshold (Default: `0.3`, Min: `0.0`, Max: `1.0`, Step: `0.05`).
 - **Second Parameter Row** (`.chat-param-row`):
-  - `Skill Selector` dropdown: Options include `Vector Store Selects` (default), `LLM Selects`, and individually discovered skills (`time-weather-skill`, `stock-analysis-skill`, `person-search-skill`, `document-search-skill`).
+  - `Skill Selector` dropdown: Options include `Vector Store Selects` (default), `LLM Selects`, and individually discovered skills (`time-weather-skill`, `stock-analysis-skill`, `person-information-skill`, `document-search-skill`).
   - `Skill Threshold` box: Numeric input (Default: `0.2`, Min: `0.0`, Max: `1.0`, Step: `0.05`). Visible when `Vector Store Selects` is active.
 - **Body Content**:
   - Lists matched skills with similarity scores and rationale.
@@ -538,7 +538,7 @@ Emma Watson,Vancouver,Canada,Director of Engineering
 - `GET /health` -> `{"status": "ok", "service": "tools", "port": 8005}`
 - `GET /api/tools/list`
   - Returns metadata and parameter schemas for available tools:
-    1. `person_search.query_person_registry`: Searches `tools/data/employee_database.csv` by `keyword` across fields (`name`, `city`, `country`, `job_title`).
+    1. `person_search.query_person_registry`: Searches `tools/data/employee_database.csv` across fields (`name`, `city`, `country`, `job_title`) using a list of search texts (`keywords`, or single text `keyword`). Searches for all queried items and returns combined, deduplicated matching entries.
     2. `stock_search.query_stocks`: Evaluates mock market feed and returns top `gainers` or `losers` limited by `limit`.
 - `POST /api/tools/call`
   - Dispatches tool invocation.
@@ -546,7 +546,7 @@ Emma Watson,Vancouver,Canada,Director of Engineering
     ```json
     {
       "tool": "person_search.query_person_registry",
-      "arguments": { "keyword": "Lucas Dubois", "field": "name" },
+      "arguments": { "keywords": ["Lucas Dubois", "Berlin"], "field": "all" },
       "conversation_id": "conv_1790000000",
       "api_key": "<key>"
     }
@@ -558,9 +558,13 @@ Emma Watson,Vancouver,Canada,Director of Engineering
       "tool": "person_search.query_person_registry",
       "duration_ms": 15,
       "result": {
-        "count": 1,
+        "count": 2,
+        "total_matches": 2,
+        "query": ["Lucas Dubois", "Berlin"],
+        "field": "all",
         "results": [
-          { "name": "Lucas Dubois", "city": "Paris", "country": "France", "job_title": "Senior AI Engineer" }
+          { "name": "Lucas Dubois", "city": "Paris", "country": "France", "job_title": "Senior AI Engineer" },
+          { "name": "Elena Rostova", "city": "Berlin", "country": "Germany", "job_title": "Data Scientist" }
         ]
       }
     }

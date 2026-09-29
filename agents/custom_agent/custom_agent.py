@@ -355,12 +355,12 @@ class CustomAgent:
                 "{\n"
                 '  "tool": "person_search.query_person_registry",\n'
                 '  "arguments": {\n'
-                '    "keyword": "Lucas Dubois",\n'
+                '    "keywords": ["Lucas Dubois"],\n'
                 '    "field": "name"\n'
                 "  }\n"
                 "}\n"
                 "Available tools: \n"
-                "- person_search.query_person_registry (arguments: keyword, field)\n"
+                "- person_search.query_person_registry (arguments: keywords [list of texts or search string], field)\n"
                 "- stock_search.query_stocks (arguments: action ['gainers', 'losers', 'quote'], limit, ticker)\n"
                 "- time_weather.get_current_weather (arguments: city)\n"
                 "- doc_search.query_documents (arguments: query, limit)\n\n"

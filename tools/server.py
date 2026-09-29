@@ -125,31 +125,16 @@ def log_tool_event(conv_id, invoker, tool_name, args, req_payload, resp_payload,
         pass
 
 # TOOL 1: Employee search
-def run_employee_search(keyword="", field=""):
-    if not os.path.exists(CSV_PATH):
-        return {"error": "Employee database file not found", "results": []}
-
-    results = []
-    clean_kw = (keyword or "").strip().lower()
-    clean_field = (field or "").strip().lower()
-
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if not clean_kw:
-                results.append(row)
-                continue
-            
-            if clean_field in ["name", "city", "country", "job_title"]:
-                val = (row.get(clean_field) or "").lower()
-                if clean_kw in val:
-                    results.append(row)
-            else:
-                # Search across all fields
-                if any(clean_kw in (v or "").lower() for v in row.values()):
-                    results.append(row)
-
-    return {"count": len(results), "results": results}
+def run_employee_search(keywords=None, field="", keyword=None):
+    query_val = keywords if keywords is not None else keyword
+    results = search_employees(keywords=query_val, field=field, csv_path=CSV_PATH)
+    return {
+        "count": len(results),
+        "total_matches": len(results),
+        "results": results,
+        "query": query_val,
+        "field": field or "all"
+    }
 
 # TOOL 2: Stock search
 def run_stock_search(action="gainers", limit=5, ticker=None):
@@ -245,9 +230,9 @@ def list_tools():
             {
                 "name": "person_search.query_person_registry",
                 "aliases": ["employee_search", "query_person_registry", "person_search"],
-                "description": "Searches for employees and staff in the CSV registry by name, city, country, or job title.",
+                "description": "Searches for employees and staff in the CSV registry by a list of search texts (or single search text) across name, city, country, or job title.",
                 "parameters": {
-                    "keyword": "string (name, city, country, or role to search for)",
+                    "keywords": "array of strings (or single string: search terms across name, city, country, or role to search for)",
                     "field": "string (optional: 'name', 'city', 'country', 'job_title')"
                 }
             },
@@ -293,9 +278,9 @@ def call_tool():
     # Match tool by name or alias
     clean_tool = tool_name.lower().replace("-", "_")
     if any(k in clean_tool for k in ["person", "employee", "registry"]):
-        kw = arguments.get("keyword") or arguments.get("name") or arguments.get("query") or ""
+        kw = arguments.get("keywords") if "keywords" in arguments else (arguments.get("keyword") or arguments.get("texts") or arguments.get("name") or arguments.get("query") or "")
         field = arguments.get("field") or ""
-        resp_data = run_employee_search(keyword=kw, field=field)
+        resp_data = run_employee_search(keywords=kw, field=field)
     elif any(k in clean_tool for k in ["stock", "equity", "ticker"]):
         act = arguments.get("action") or ("gainers" if "gain" in clean_tool else "losers" if "lose" in clean_tool else "gainers")
         lim = arguments.get("limit") or 5
@@ -370,7 +355,8 @@ def mcp_messages():
 def call_tool_direct(tool_name, args):
     clean = tool_name.lower()
     if "person" in clean or "employee" in clean:
-        return run_employee_search(args.get("keyword", ""), args.get("field", ""))
+        kw = args.get("keywords") if "keywords" in args else args.get("keyword", "")
+        return run_employee_search(keywords=kw, field=args.get("field", ""))
     elif "stock" in clean:
         return run_stock_search(args.get("action", "gainers"), args.get("limit", 5), args.get("ticker"))
     elif "weather" in clean or "time" in clean:

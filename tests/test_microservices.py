@@ -133,7 +133,7 @@ def test_tools_service():
     tools_list = client.get("/api/tools/list").get_json()["tools"]
     assert len(tools_list) >= 3
 
-    # Employee search tool
+    # Employee search tool (single keyword backward compatibility)
     emp_res = client.post("/api/tools/call", json={
         "tool": "person_search.query_person_registry",
         "arguments": {"keyword": "Dubois", "field": "name"},
@@ -143,6 +143,19 @@ def test_tools_service():
     emp_data = emp_res.get_json()["result"]
     assert emp_data["count"] >= 1
     assert "Lucas Dubois" in [r["name"] for r in emp_data["results"]]
+
+    # Employee search tool (list of search texts)
+    emp_multi_res = client.post("/api/tools/call", json={
+        "tool": "person_search.query_person_registry",
+        "arguments": {"keywords": ["Dubois", "Berlin"], "field": "all"},
+        "conversation_id": "test_conv"
+    })
+    assert emp_multi_res.status_code == 200
+    emp_multi_data = emp_multi_res.get_json()["result"]
+    assert emp_multi_data["count"] >= 2
+    matched_names = [r["name"] for r in emp_multi_data["results"]]
+    assert "Lucas Dubois" in matched_names
+    assert "Elena Rostova" in matched_names
 
     # Stock search tool (gainers)
     stock_res = client.post("/api/tools/call", json={
@@ -251,3 +264,42 @@ def test_web_ui_routes():
     assert b"page-containers" in res.data
     assert b"page-auth" in res.data
     assert b"loginModal" in res.data
+
+# 7. Test Person Information Skill & Employee Search Modularity
+def test_person_information_skill_modular():
+    person_search_mod = load_service(
+        "test_person_search_module",
+        "agents/skills/person-information-skill/scripts/person_search.py"
+    )
+    query_person_registry = person_search_mod.query_person_registry
+    normalize_search_terms = person_search_mod.normalize_search_terms
+    filter_person_records = person_search_mod.filter_person_records
+
+    from tools.scripts.employee_search import search_employees, normalize_search_terms as norm_emp, filter_records
+
+    # Test normalization
+    assert normalize_search_terms([" Lucas ", "  PARIS "]) == ["lucas", "paris"]
+    assert normalize_search_terms(" Dubois ") == ["dubois"]
+    assert normalize_search_terms([]) == []
+
+    # Test skill query with list of search texts
+    res = query_person_registry(keywords=["Lucas Dubois", "Berlin"])
+    assert res["status"] == "success"
+    assert res["total_matches"] == 2
+    names = [r["name"] for r in res["results"]]
+    assert "Lucas Dubois" in names
+    assert "Elena Rostova" in names
+
+    # Test deduplication when multiple terms match the same entry
+    res_dedup = query_person_registry(keywords=["Lucas Dubois", "Paris", "France", "Chief AI Architect"])
+    assert res_dedup["status"] == "success"
+    lucas_matches = [r for r in res_dedup["results"] if r["name"] == "Lucas Dubois"]
+    assert len(lucas_matches) == 1, "Lucas Dubois should only appear once despite matching all 4 terms"
+
+    # Test modular search_employees from tools
+    emp_matches = search_employees(keywords=["Paris", "Tokyo"])
+    assert len(emp_matches) >= 2
+    emp_names = [e["name"] for e in emp_matches]
+    assert "Lucas Dubois" in emp_names
+    assert "Kenji Takahashi" in emp_names
+
