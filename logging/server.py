@@ -95,6 +95,30 @@ def extract_metadata_from_payload(payload):
 
     return dur, str(model or ""), in_tok, out_tok
 
+def get_request_tz():
+    tz_off_str = request.args.get("tz_offset")
+    if tz_off_str is not None:
+        try:
+            offset_minutes = int(float(tz_off_str))
+            return timezone(timedelta(minutes=-offset_minutes))
+        except Exception:
+            pass
+    try:
+        return datetime.now().astimezone().tzinfo or timezone.utc
+    except Exception:
+        return timezone.utc
+
+def to_local_iso(ts_str, tz=None):
+    if not ts_str:
+        return ""
+    if tz is None:
+        tz = get_request_tz()
+    try:
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        return dt.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return ts_str
+
 def load_logs():
     if not os.path.exists(LOG_FILE):
         return []
@@ -302,6 +326,11 @@ def list_conversations():
     result = list(conversations.values())
     result.sort(key=lambda x: x["last_seen"], reverse=True)
 
+    tz = get_request_tz()
+    for conv in result:
+        conv["local_timestamp"] = to_local_iso(conv.get("timestamp"), tz)
+        conv["local_time"] = conv["local_timestamp"]
+
     # Compute statistics for Log Viewer Header Pill
     total_prompts = sum(1 for l in logs if any(t in (l.get("type") or "") for t in ["chat_request", "prompt", "llm_request", "user_query"]) and (l.get("type") in ["chat_request", "send_chat_request"] or l.get("invoker") == "Web UI"))
     total_model_calls = sum(1 for l in logs if l.get("type") in ["llm_invocation", "llm_response", "llm_request"] or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"])
@@ -323,6 +352,7 @@ def list_conversations():
 
 @app.route("/api/conversations/<conversation_id>/events", methods=["GET"])
 def conversation_events(conversation_id):
+    tz = get_request_tz()
     logs = load_logs()
     events = [l for l in logs if l.get("conversation_id") == conversation_id]
     events.sort(key=lambda x: x.get("timestamp", ""))
@@ -331,13 +361,18 @@ def conversation_events(conversation_id):
         e = dict(l)
         e["event_type"] = l.get("type", "generic")
         e["target"] = l.get("recipient", "unknown")
-        e["local_time"] = l.get("timestamp", "")
+        raw_ts = l.get("timestamp", "")
+        e["raw_timestamp"] = raw_ts
+        e["local_time"] = to_local_iso(raw_ts, tz)
         e["elapsed_ms"] = l.get("duration_ms", 0)
         enriched.append(e)
     return jsonify({"conversation_id": conversation_id, "events": enriched})
 
 @app.route("/api/logs/telemetry", methods=["GET"])
 def get_telemetry():
+    tz = get_request_tz()
+    tz_shift = int(tz.utcoffset(None).total_seconds()) if tz.utcoffset(None) else 0
+
     model_filter = request.args.get("model")
     raw_interval = (request.args.get("interval") or "15m").strip().lower()
     raw_range = (request.args.get("range") or request.args.get("time_range") or "1d").strip().lower()
@@ -423,35 +458,49 @@ def get_telemetry():
         if dur > 0 and (any(t in l_type for t in ["llm_response", "chat_response", "embedding_query"]) or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"]):
             latencies.append(dur)
 
-    # Calculate throughput / token velocity timeline points aggregated into buckets
+    # Calculate throughput / token velocity timeline points aggregated into buckets in local time
     buckets = {}
     for l in relevant:
         try:
             ts = datetime.fromisoformat(l.get("timestamp").replace("Z", "+00:00"))
             epoch = int(ts.timestamp())
-            b_epoch = epoch - (epoch % bucket_seconds)
-            b_key = datetime.fromtimestamp(b_epoch, timezone.utc).strftime("%H:%M" if bucket_seconds < 86400 else "%m-%d")
+            local_epoch = epoch + tz_shift
+            b_local_epoch = local_epoch - (local_epoch % bucket_seconds)
+            b_epoch = b_local_epoch - tz_shift
 
-            if b_key not in buckets:
-                buckets[b_key] = {"prompts": 0, "responses": 0, "errors": 0, "input_tokens": 0, "output_tokens": 0}
+            dt_local = datetime.fromtimestamp(b_epoch, tz)
+            b_key = dt_local.strftime("%H:%M" if bucket_seconds < 86400 else "%m-%d")
+
+            if b_epoch not in buckets:
+                buckets[b_epoch] = {
+                    "time": b_key,
+                    "local_time": b_key,
+                    "epoch": b_epoch,
+                    "prompts": 0,
+                    "responses": 0,
+                    "errors": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0
+                }
 
             lt = l.get("type", "")
             if any(t in lt for t in ["chat_request", "prompt", "llm_request", "user_query"]) and lt not in ["received_chat_request"]:
-                buckets[b_key]["prompts"] += 1
+                buckets[b_epoch]["prompts"] += 1
             elif any(t in lt for t in ["chat_response", "llm_response", "agent_response"]) and lt not in ["received_chat_response"]:
-                buckets[b_key]["responses"] += 1
+                buckets[b_epoch]["responses"] += 1
             if l.get("is_error") or l.get("status") in ["error", "failure"]:
-                buckets[b_key]["errors"] += 1
+                buckets[b_epoch]["errors"] += 1
 
-            buckets[b_key]["input_tokens"] += (l.get("input_tokens") or 0)
-            buckets[b_key]["output_tokens"] += (l.get("output_tokens") or 0)
+            buckets[b_epoch]["input_tokens"] += (l.get("input_tokens") or 0)
+            buckets[b_epoch]["output_tokens"] += (l.get("output_tokens") or 0)
         except Exception:
             continue
 
-    timeline = [{"time": k, **v} for k, v in sorted(buckets.items())]
+    timeline = [buckets[k] for k in sorted(buckets.keys())]
 
     charts = {
         "labels": [b["time"] for b in timeline],
+        "epochs": [b["epoch"] for b in timeline],
         "prompts": [b["prompts"] for b in timeline],
         "responses": [b["responses"] for b in timeline],
         "errors": [b["errors"] for b in timeline],

@@ -167,6 +167,7 @@ The Main App window should have:
 - On the right side of the page, put the button called “Refresh Telemetry” to allow the user to manually refresh the page.
 - To the left of the “Refresh Telemetry” button, add a dropdown box to list the models that have been used. Filter the contents of the telemetry page based on the model selected. Include “All Models” as the default option.
 - Next, shows Total Prompts, Total Response, Total Errors, Total Input Tokens, and Total Output Tokens sent to and received from the LLM models.
+- Convert and display all time stamps in the user's local time zone.
 
 #### Top Card: "System Throughput & Token Velocity"
 - Below the statistic, add a card that shows 2 graphs.
@@ -186,6 +187,7 @@ The Main App window should have:
 - To the right side of the page, add a button called “Refresh” to allow the user to manually refresh the page.
 - To the left of the “Refresh” button, add a button to allow the user to clear the logs. This will delete all the logs. When the user clicks on this box, open a pop up window asking the user to confirm.
 - Next, display the statistics of the total user prompts logged, model calls, Ollama embeds, Avg call latency.
+- Convert and display all time stamps in the user's local time zone.
 
 #### Top table: "User Conversations (Select a row to inspect associated events)"
 - Display the list of all the user conversations in the log.

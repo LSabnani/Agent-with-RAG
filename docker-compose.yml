@@ -9,6 +9,7 @@ services:
       - "8006:8006"
     volumes:
       - ./logging/logs:/app/logs
+      - ./logging/server.py:/app/server.py
     environment:
       - PORT=8006
       - RUNNING_IN_DOCKER=true
@@ -123,6 +124,7 @@ services:
       - ./web_ui/secrets:/app/secrets
       - ./web_ui/static:/app/static
       - ./web_ui/templates:/app/templates
+      - ./web_ui/app.py:/app/app.py
       - ./agents/secrets:/app/container_secrets/agents
       - ./doc_RAG/secrets:/app/container_secrets/doc_rag
       - ./tools/secrets:/app/container_secrets/tools

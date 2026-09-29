@@ -13,6 +13,27 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentConversationsCache = [];
   let currentEventsCache = [];
 
+  // Helper: Format ISO timestamp or epoch seconds to local time string (YYYY-MM-DD HH:mm:ss)
+  function formatToLocalTime(tsInput) {
+    if (!tsInput) return '-';
+    try {
+      const d = (typeof tsInput === 'number')
+        ? new Date(tsInput > 1e11 ? tsInput : tsInput * 1000)
+        : new Date(tsInput);
+      if (isNaN(d.getTime())) return String(tsInput);
+      const pad = n => String(n).padStart(2, '0');
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const minutes = pad(d.getMinutes());
+      const seconds = pad(d.getSeconds());
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch (e) {
+      return String(tsInput);
+    }
+  }
+
   // DOM Elements - Navigation & Header
   const navTabs = document.querySelectorAll('.nav-tab');
   const pageViews = document.querySelectorAll('.page-view');
@@ -814,6 +835,7 @@ document.addEventListener('DOMContentLoaded', () => {
         model: telemetryModelFilter.value,
         interval: telIntervalSelect.value,
         time_range: telRangeSelect.value,
+        tz_offset: new Date().getTimezoneOffset(),
       });
 
       if (telRangeSelect.value === 'Custom' && telStartDate.value && telEndDate.value) {
@@ -861,12 +883,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderTelemetryCharts(chartsData) {
-    const labels = chartsData.labels || [];
+    const rawLabels = chartsData.labels || [];
+    const epochs = chartsData.epochs || [];
     const prompts = chartsData.prompts || [];
     const responses = chartsData.responses || [];
     const errors = chartsData.errors || [];
     const inTokens = chartsData.input_tokens || [];
     const outTokens = chartsData.output_tokens || [];
+
+    // Format chart labels to local time
+    const pad = n => String(n).padStart(2, '0');
+    const isDaily = telIntervalSelect && (telIntervalSelect.value === '1 day' || telIntervalSelect.value.includes('day'));
+    const labels = (epochs && epochs.length === rawLabels.length) ? epochs.map(ep => {
+      const d = new Date(ep * 1000);
+      return isDaily ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }) : rawLabels;
 
     // Safely destroy existing Chart instances before creating new ones
     try {
@@ -892,6 +923,17 @@ document.addEventListener('DOMContentLoaded', () => {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: function(context) {
+              const idx = context && context[0] ? context[0].dataIndex : 0;
+              if (epochs && epochs[idx]) {
+                return formatToLocalTime(epochs[idx]);
+              }
+              return context && context[0] ? context[0].label : '';
+            }
+          }
+        }
       },
       scales: {
         x: {
@@ -996,7 +1038,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------------------------------------------------------------------
   async function loadAuditLogs() {
     try {
-      const res = await fetch('/api/logs');
+      const params = new URLSearchParams({
+        tz_offset: new Date().getTimezoneOffset()
+      });
+      const res = await fetch(`/api/logs?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch logs');
       const data = await res.json();
 
@@ -1017,11 +1062,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       conversationsTbody.innerHTML = currentConversationsCache.map(c => {
-        const ts = c.timestamp || c.last_seen || c.first_seen || '';
+        const rawTs = c.local_timestamp || c.timestamp || c.last_seen || c.first_seen || '';
+        const localTs = formatToLocalTime(rawTs);
         const evCount = c.event_count !== undefined ? c.event_count : (c.events_count || 0);
         return `
         <tr class="conv-row ${c.conversation_id === selectedConversationId ? 'selected-row' : ''}" data-cid="${escapeHtml(c.conversation_id)}">
-          <td><span style="font-family:var(--font-mono);font-size:0.75rem;">${escapeHtml(ts)}</span></td>
+          <td><span style="font-family:var(--font-mono);font-size:0.75rem;">${escapeHtml(localTs)}</span></td>
           <td><code style="color:#a5b4fc;">${escapeHtml(c.conversation_id)}</code></td>
           <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.user_query || '')}</td>
           <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.agent_response || '')}</td>
@@ -1068,7 +1114,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch conversation events
     try {
-      const res = await fetch(`/api/logs/${encodeURIComponent(cid)}`);
+      const params = new URLSearchParams({
+        tz_offset: new Date().getTimezoneOffset()
+      });
+      const res = await fetch(`/api/logs/${encodeURIComponent(cid)}?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to load events');
       const data = await res.json();
       currentEventsCache = data.events || [];
@@ -1079,7 +1128,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       eventsTbody.innerHTML = currentEventsCache.map((evt, idx) => {
-        const localTime = evt.local_time || evt.timestamp || '';
+        const rawTime = evt.local_time || evt.raw_timestamp || evt.timestamp || '';
+        const localTime = formatToLocalTime(rawTime);
         const eventType = evt.event_type || evt.type || 'generic';
         const invoker = evt.invoker || 'unknown';
         const target = evt.target || evt.recipient || 'unknown';
@@ -1252,9 +1302,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showEventDetailModal(evt) {
+    const rawTime = evt.local_time || evt.raw_timestamp || evt.timestamp || '';
+    const formattedLocalTime = formatToLocalTime(rawTime);
     eventModalMeta.innerHTML = `
       <div><span style="color:var(--text-muted);">Event ID:</span> <code>${escapeHtml(evt.id || '')}</code></div>
-      <div><span style="color:var(--text-muted);">Time (Local):</span> <strong>${escapeHtml(evt.local_time || '')}</strong></div>
+      <div><span style="color:var(--text-muted);">Time (Local):</span> <strong>${escapeHtml(formattedLocalTime)}</strong></div>
       <div><span style="color:var(--text-muted);">Event Type:</span> <strong style="color:#60a5fa;">${escapeHtml(evt.event_type || '')}</strong></div>
       <div><span style="color:var(--text-muted);">Latency:</span> <strong>${evt.elapsed_ms ? `${evt.elapsed_ms} ms` : 'N/A'}</strong></div>
       <div><span style="color:var(--text-muted);">Invoker:</span> <strong>${escapeHtml(evt.invoker || '')}</strong></div>

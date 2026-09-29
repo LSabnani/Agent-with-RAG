@@ -820,7 +820,7 @@ def proxy_telemetry():
 def proxy_audit_conversations():
     url = resolve_url(LOGGING_URL, "logging", 8006)
     try:
-        r = requests.get(f"{url}/api/conversations", timeout=5)
+        r = requests.get(f"{url}/api/conversations", params=request.args, timeout=5)
         return jsonify(r.json())
     except Exception:
         return jsonify({"conversations": [], "statistics": {}})
@@ -830,7 +830,7 @@ def proxy_audit_conversations():
 def proxy_audit_events(conv_id):
     url = resolve_url(LOGGING_URL, "logging", 8006)
     try:
-        r = requests.get(f"{url}/api/conversations/{conv_id}/events", timeout=5)
+        r = requests.get(f"{url}/api/conversations/{conv_id}/events", params=request.args, timeout=5)
         return jsonify(r.json())
     except Exception:
         return jsonify({"events": []})
