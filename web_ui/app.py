@@ -72,6 +72,61 @@ def log_event(invoker, recipient, event_type, desc, payload, conv_id=None, statu
     except Exception:
         pass
 
+CONTAINER_DIR_MAP = {
+    "web_ui": "web_ui",
+    "agents": "agents",
+    "doc_rag": "doc_RAG",
+    "tools": "tools",
+    "auth_service": "auth_service",
+    "ollama": "embedding",
+    "logging": "logging"
+}
+
+def get_container_keys_file(container_name):
+    # Check docker mounted container_secrets first
+    docker_c_sec = f"/app/container_secrets/{container_name}/keys"
+    if os.path.exists(os.path.dirname(docker_c_sec)):
+        return docker_c_sec
+    if container_name == "web_ui" and os.path.exists("/app/secrets"):
+        return "/app/secrets/keys"
+
+    # Fallback to local filesystem relative to project root
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    c_folder = CONTAINER_DIR_MAP.get(container_name, container_name)
+    sec_dir = os.path.join(base, c_folder, "secrets")
+    os.makedirs(sec_dir, exist_ok=True)
+    return os.path.join(sec_dir, "keys")
+
+def load_container_keys(container_name):
+    keys = {}
+    path = get_container_keys_file(container_name)
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            keys[k.strip()] = v.strip()
+                        else:
+                            keys[line] = line
+        except Exception as e:
+            print(f"[WebUI] Error reading keys for {container_name}: {e}")
+    return keys
+
+def save_container_keys(container_name, keys_dict):
+    path = get_container_keys_file(container_name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for k, v in keys_dict.items():
+            if v and str(v).strip():
+                f.write(f"{k.strip()}={str(v).strip()}\n")
+
+def get_web_ui_key(target_service):
+    k_map = load_container_keys("web_ui")
+    return k_map.get(target_service) or k_map.get("all")
+
 @app.route("/")
 def index():
     if "session_id" not in session:
@@ -270,10 +325,29 @@ def proxy_chat():
         conv_id=conv_id
     )
 
+    # Attach configured API key for agents if available
+    agent_key = data.get("api_key") or get_web_ui_key("agents")
+    if agent_key:
+        data["api_key"] = agent_key
+
+    headers = {"Content-Type": "application/json"}
+    if agent_key:
+        headers["X-API-Key"] = agent_key
+
     try:
-        r = requests.post(f"{url}/api/agent/chat", json=data, timeout=60)
+        r = requests.post(f"{url}/api/agent/chat", json=data, headers=headers, timeout=60)
         res_data = r.json()
         
+        # Enrich response with retrieved_evidence pulled from Logging per SPECIFICATIONS.md
+        logged_ev = extract_evidence_from_logs(conv_id)
+        if logged_ev.get("skills") or logged_ev.get("documents"):
+            res_data["retrieved_evidence"] = {
+                "skills": logged_ev.get("skills", []),
+                "documents": logged_ev.get("documents", [])
+            }
+        elif not res_data.get("retrieved_evidence"):
+            res_data["retrieved_evidence"] = {"skills": [], "documents": []}
+
         # Log response received by Web UI from Agents
         log_event(
             invoker="agents",
@@ -298,40 +372,127 @@ def proxy_chat():
         )
         return jsonify({"error": f"Agent service unreachable: {e}"}), 502
 
+def extract_evidence_from_logs(conv_id):
+    """Pulls logs for a conversation from the Logging container and extracts skills and documents evidence."""
+    if not conv_id:
+        return {"skills": [], "documents": [], "flat_items": []}
+
+    url = resolve_url(LOGGING_URL, "logging", 8006)
+    logs = []
+    try:
+        r = requests.post(f"{url}/api/logs/query", json={"conversation_id": conv_id, "limit": 100}, timeout=5)
+        if r.status_code == 200:
+            logs = r.json().get("logs", [])
+    except Exception as e:
+        print(f"[WebUI] Error fetching logs for evidence ({conv_id}): {e}")
+
+    skills = []
+    seen_skills = set()
+    doc_map = {}
+
+    for l in logs:
+        l_type = l.get("type") or l.get("event_type") or ""
+        payload = l.get("payload") or {}
+        if not isinstance(payload, dict):
+            continue
+        req = payload.get("request", {}) if isinstance(payload.get("request"), dict) else {}
+        resp = payload.get("response", {}) if isinstance(payload.get("response"), dict) else {}
+
+        # 1. Skills: skill_vector_response or vector_db_query_response with skill
+        if l_type == "skill_vector_response" or (l_type == "vector_db_query_response" and req.get("document_type") == "skill"):
+            items = payload.get("results") or resp.get("matched_items") or []
+            for item in items:
+                name = item.get("skill_name") or item.get("name") or "Skill"
+                try:
+                    score = round(float(item.get("similarity_score", 0)), 4)
+                except (ValueError, TypeError):
+                    score = 0.0
+                desc = item.get("chunk_text") or item.get("text") or ""
+                if name not in seen_skills:
+                    seen_skills.add(name)
+                    skills.append({
+                        "name": name,
+                        "similarity": score,
+                        "description": desc[:300]
+                    })
+                else:
+                    for s in skills:
+                        if s["name"] == name and score > s["similarity"]:
+                            s["similarity"] = score
+
+        # 2. Documents: document_vector_response or vector_db_query_response with document
+        if l_type == "document_vector_response" or (l_type == "vector_db_query_response" and req.get("document_type") == "document"):
+            items = payload.get("results") or resp.get("matched_items") or []
+            for item in items:
+                meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+                d_name = item.get("document_name") or meta.get("document_name") or item.get("name") or "Document"
+                try:
+                    score = round(float(item.get("similarity_score", 0)), 4)
+                except (ValueError, TypeError):
+                    score = 0.0
+                idx = meta.get("chunk_index", 0)
+                txt = item.get("chunk_text") or item.get("text") or ""
+
+                if d_name not in doc_map:
+                    doc_map[d_name] = {
+                        "doc_name": d_name,
+                        "highest_similarity": score,
+                        "chunks": []
+                    }
+                if score > doc_map[d_name]["highest_similarity"]:
+                    doc_map[d_name]["highest_similarity"] = score
+
+                if not any(c["index"] == idx and abs(c["similarity"] - score) < 1e-4 for c in doc_map[d_name]["chunks"]):
+                    doc_map[d_name]["chunks"].append({
+                        "index": idx,
+                        "similarity": score,
+                        "text": txt
+                    })
+
+    for d in doc_map.values():
+        d["chunks"].sort(key=lambda x: x.get("index", 0))
+
+    docs = list(doc_map.values())
+    docs.sort(key=lambda x: x.get("highest_similarity", 0), reverse=True)
+
+    flat_items = []
+    for s in skills:
+        flat_items.append({
+            "category": "Skill",
+            "title": s["name"],
+            "score": s["similarity"],
+            "content": s["description"]
+        })
+    for d in docs:
+        for ch in d["chunks"]:
+            flat_items.append({
+                "category": "Document",
+                "title": f"{d['doc_name']} (Chunk #{ch['index']})",
+                "score": ch["similarity"],
+                "content": ch["text"][:400]
+            })
+
+    return {
+        "skills": skills,
+        "documents": docs,
+        "flat_items": flat_items
+    }
+
 @app.route("/api/evidence/<conv_id>", methods=["GET"])
 def get_context_evidence(conv_id):
     """Pulls context evidence from Logging container grouped by skills and documents."""
-    url = resolve_url(LOGGING_URL, "logging", 8006)
-    try:
-        r = requests.post(f"{url}/api/logs/query", json={"conversation_id": conv_id, "limit": 50}, timeout=5)
-        logs = r.json().get("logs", [])
-        evidence_items = []
-        for l in logs:
-            payload = l.get("payload", {})
-            req = payload.get("request", {})
-            resp = payload.get("response", {})
-
-            if l.get("type") == "skill_search" or "skill" in l.get("type", ""):
-                results = resp.get("results", [])
-                for hit in results:
-                    evidence_items.append({
-                        "category": "Skill",
-                        "title": hit.get("skill_name") or "Skill Match",
-                        "score": hit.get("similarity_score", 0),
-                        "content": hit.get("text", "")[:400]
-                    })
-            elif l.get("type") == "document_search" or "document" in l.get("type", ""):
-                results = resp.get("results", [])
-                for hit in results:
-                    evidence_items.append({
-                        "category": "Document",
-                        "title": hit.get("document_name") or "Document Chunk",
-                        "score": hit.get("similarity_score", 0),
-                        "content": hit.get("text", "")[:400]
-                    })
-        return jsonify({"conversation_id": conv_id, "evidence": evidence_items})
-    except Exception as e:
-        return jsonify({"conversation_id": conv_id, "evidence": []})
+    ev = extract_evidence_from_logs(conv_id)
+    return jsonify({
+        "status": "success",
+        "conversation_id": conv_id,
+        "retrieved_evidence": {
+            "skills": ev.get("skills", []),
+            "documents": ev.get("documents", [])
+        },
+        "skills": ev.get("skills", []),
+        "documents": ev.get("documents", []),
+        "evidence": ev.get("flat_items", [])
+    })
 
 # -------------------------------------------------------------
 # VectorDB Mgnt APIs
@@ -554,13 +715,21 @@ def populate_vectordb():
         return jsonify({"error": "Extracted text content is empty"}), 400
 
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
+    doc_rag_key = get_web_ui_key("doc_rag")
+    req_body = {
+        "name": doc_name,
+        "complete_text": content,
+        "chunk_size": chunk_size,
+        "overlap": overlap
+    }
+    if doc_rag_key:
+        req_body["api_key"] = doc_rag_key
+    headers = {"Content-Type": "application/json"}
+    if doc_rag_key:
+        headers["X-API-Key"] = doc_rag_key
+
     try:
-        r = requests.post(f"{url}/api/rag/documents/add", json={
-            "name": doc_name,
-            "complete_text": content,
-            "chunk_size": chunk_size,
-            "overlap": overlap
-        }, timeout=30)
+        r = requests.post(f"{url}/api/rag/documents/add", json=req_body, headers=headers, timeout=30)
         res_data = r.json()
         if r.status_code == 200:
             res_data["message"] = f"Successfully ingested '{doc_name}' ({res_data.get('chunks_created', 0)} chunks)."
@@ -583,8 +752,12 @@ def proxy_delete_doc(doc_name=None):
 
     name = urllib.parse.unquote(raw_name)
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
+    doc_rag_key = get_web_ui_key("doc_rag")
+    headers = {}
+    if doc_rag_key:
+        headers["X-API-Key"] = doc_rag_key
     try:
-        r = requests.delete(f"{url}/api/rag/documents/{urllib.parse.quote(name)}", timeout=5)
+        r = requests.delete(f"{url}/api/rag/documents/{urllib.parse.quote(name)}", headers=headers, timeout=5)
         return jsonify(r.json()), r.status_code
     except Exception as e:
         return jsonify({"error": f"Failed to delete document: {e}"}), 502
@@ -592,8 +765,12 @@ def proxy_delete_doc(doc_name=None):
 @app.route("/api/vectordb/reset", methods=["POST"])
 def proxy_reset_db():
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
+    doc_rag_key = get_web_ui_key("doc_rag")
+    headers = {}
+    if doc_rag_key:
+        headers["X-API-Key"] = doc_rag_key
     try:
-        r = requests.post(f"{url}/api/rag/reset", timeout=5)
+        r = requests.post(f"{url}/api/rag/reset", headers=headers, timeout=5)
         return jsonify(r.json()), r.status_code
     except Exception as e:
         return jsonify({"error": f"Failed to reset database: {e}"}), 502
@@ -802,6 +979,31 @@ def restart_all_containers():
             except Exception:
                 pass
     return jsonify({"status": "success", "message": "All containers restarted"})
+
+@app.route("/api/containers/<name>/keys", methods=["GET"])
+def get_container_keys_endpoint(name):
+    keys = load_container_keys(name)
+    return jsonify({"status": "success", "container": name, "keys": keys})
+
+@app.route("/api/containers/<name>/keys", methods=["POST"])
+def update_container_keys_endpoint(name):
+    data = request.get_json(silent=True) or {}
+    keys = load_container_keys(name)
+    if "keys" in data and isinstance(data["keys"], dict):
+        for k, v in data["keys"].items():
+            if v and str(v).strip():
+                keys[k.strip()] = str(v).strip()
+            else:
+                keys.pop(k.strip(), None)
+    elif "target" in data:
+        t = data["target"].strip()
+        k = data.get("api_key", "").strip()
+        if k:
+            keys[t] = k
+        else:
+            keys.pop(t, None)
+    save_container_keys(name, keys)
+    return jsonify({"status": "success", "container": name, "keys": keys})
 
 @app.route("/api/app/shutdown", methods=["POST"])
 def app_shutdown():

@@ -197,8 +197,9 @@ class CustomAgent:
 
     def run(self, message, conversation_id, model="gemma-4-26b-a4b-it", temperature=0.7, max_tokens=2048,
             max_turns=3, skill_selector="Vector Store Selects", skill_threshold=0.2, doc_threshold=0.3,
-            max_chunks=5, custom_endpoint=None, api_key=None):
+            max_chunks=5, custom_endpoint=None, api_key=None, configured_keys=None, **kwargs):
         
+        configured_keys = configured_keys or {}
         agent_start = time.time()
         steps = []
         max_turns = max(1, min(int(max_turns or 3), 10))
@@ -231,6 +232,10 @@ class CustomAgent:
         })
 
         matched_skills = []
+        retrieved_evidence = {
+            "skills": [],
+            "documents": []
+        }
 
         # 1. Skill Selection
         s_start = time.time()
@@ -238,13 +243,14 @@ class CustomAgent:
             # Query doc_RAG skill vector store
             try:
                 rag_url = self._resolve(self.doc_rag_url, "doc_rag", 8003)
+                rag_key = configured_keys.get("doc_rag") or api_key
                 skill_req = {
                     "db_type": "skill",
                     "query": message,
                     "threshold": skill_threshold,
                     "limit": 2,
                     "conversation_id": conversation_id,
-                    "api_key": api_key,
+                    "api_key": rag_key,
                     "invoker": "Custom Agent"
                 }
                 self.log(
@@ -255,9 +261,21 @@ class CustomAgent:
                     payload=skill_req,
                     conv_id=conversation_id
                 )
-                resp = requests.post(f"{rag_url}/api/rag/query", json=skill_req, timeout=5)
+                headers = {"Content-Type": "application/json"}
+                if rag_key:
+                    headers["X-API-Key"] = rag_key
+                resp = requests.post(f"{rag_url}/api/rag/query", json=skill_req, headers=headers, timeout=5)
                 if resp.status_code == 200:
                     matched_skills = resp.json().get("results", [])
+                    for s in matched_skills:
+                        s_name = s.get("skill_name") or s.get("name") or "Skill"
+                        score = round(float(s.get("similarity_score", 0)), 4) if s.get("similarity_score") is not None else 0.0
+                        desc = (s.get("chunk_text") or s.get("text") or "")[:300]
+                        retrieved_evidence["skills"].append({
+                            "name": s_name,
+                            "similarity": score,
+                            "description": desc
+                        })
                     self.log(
                         invoker="doc_rag",
                         recipient="Custom Agent",
@@ -389,13 +407,14 @@ class CustomAgent:
                     # Query doc_RAG
                     try:
                         rag_url = self._resolve(self.doc_rag_url, "doc_rag", 8003)
+                        rag_key = configured_keys.get("doc_rag") or api_key
                         doc_req = {
                             "db_type": "document",
                             "query": t_args.get("query", message),
                             "threshold": doc_threshold,
                             "limit": max_chunks,
                             "conversation_id": conversation_id,
-                            "api_key": api_key,
+                            "api_key": rag_key,
                             "invoker": "Custom Agent"
                         }
                         self.log(
@@ -406,8 +425,35 @@ class CustomAgent:
                             payload=doc_req,
                             conv_id=conversation_id
                         )
-                        r = requests.post(f"{rag_url}/api/rag/query", json=doc_req, timeout=5)
+                        headers = {"Content-Type": "application/json"}
+                        if rag_key:
+                            headers["X-API-Key"] = rag_key
+                        r = requests.post(f"{rag_url}/api/rag/query", json=doc_req, headers=headers, timeout=5)
                         tool_result = r.json()
+                        if tool_result and isinstance(tool_result, dict):
+                            doc_items = tool_result.get("results") or tool_result.get("matched_items") or []
+                            doc_groups = {}
+                            for item in doc_items:
+                                meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+                                d_name = item.get("document_name") or meta.get("document_name") or item.get("name") or "Document"
+                                score = round(float(item.get("similarity_score", 0)), 4) if item.get("similarity_score") is not None else 0.0
+                                idx = meta.get("chunk_index", 0)
+                                txt = item.get("chunk_text") or item.get("text") or ""
+                                if d_name not in doc_groups:
+                                    doc_groups[d_name] = {
+                                        "doc_name": d_name,
+                                        "highest_similarity": score,
+                                        "chunks": []
+                                    }
+                                if score > doc_groups[d_name]["highest_similarity"]:
+                                    doc_groups[d_name]["highest_similarity"] = score
+                                if not any(c["index"] == idx and abs(c["similarity"] - score) < 1e-4 for c in doc_groups[d_name]["chunks"]):
+                                    doc_groups[d_name]["chunks"].append({
+                                        "index": idx,
+                                        "similarity": score,
+                                        "text": txt
+                                    })
+                            retrieved_evidence["documents"].extend(list(doc_groups.values()))
                         self.log(
                             invoker="doc_rag",
                             recipient="Custom Agent",
@@ -424,11 +470,12 @@ class CustomAgent:
                     # Query Tools container
                     try:
                         tools_url = self._resolve(self.tools_url, "tools", 8005)
+                        tool_key = configured_keys.get("tools") or api_key
                         tool_req = {
                             "tool": t_name,
                             "arguments": t_args,
                             "conversation_id": conversation_id,
-                            "api_key": api_key,
+                            "api_key": tool_key,
                             "invoker": "Custom Agent"
                         }
                         self.log(
@@ -439,7 +486,10 @@ class CustomAgent:
                             payload=tool_req,
                             conv_id=conversation_id
                         )
-                        r = requests.post(f"{tools_url}/api/tools/call", json=tool_req, timeout=8)
+                        headers = {"Content-Type": "application/json"}
+                        if tool_key:
+                            headers["X-API-Key"] = tool_key
+                        r = requests.post(f"{tools_url}/api/tools/call", json=tool_req, headers=headers, timeout=8)
                         tool_result = r.json().get("result", {})
                         self.log(
                             invoker="tools",
@@ -505,7 +555,8 @@ class CustomAgent:
                 "agent_type": "Custom Agent",
                 "model": model,
                 "elapsed_ms": total_elapsed,
-                "steps": steps
+                "steps": steps,
+                "retrieved_evidence": retrieved_evidence
             },
             conv_id=conversation_id,
             dur_ms=total_elapsed,
@@ -518,5 +569,6 @@ class CustomAgent:
             "agent_type": "Custom Agent",
             "model": model,
             "elapsed_ms": total_elapsed,
-            "steps": steps
+            "steps": steps,
+            "retrieved_evidence": retrieved_evidence
         }

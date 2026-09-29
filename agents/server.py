@@ -51,6 +51,26 @@ DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemma-4-26b-a4b-it")
 custom_agent = CustomAgent(doc_rag_url=DOC_RAG_URL, tools_url=TOOLS_URL, logging_url=LOGGING_URL, gemini_api_key=GEMINI_API_KEY)
 adk_agent = GoogleADKAgent(doc_rag_url=DOC_RAG_URL, tools_url=TOOLS_URL, logging_url=LOGGING_URL, gemini_api_key=GEMINI_API_KEY)
 
+AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth_service:8001/api/auth/validate_key")
+def validate_agent_request_auth(api_key, invoker="web_ui"):
+    if not api_key:
+        return True, "No key provided"
+    try:
+        url = AUTH_SERVICE_URL
+        if not os.environ.get("RUNNING_IN_DOCKER") and "auth_service:8001" in url:
+            url = url.replace("auth_service:8001", "127.0.0.1:8001")
+        resp = requests.post(url, json={
+            "api_key": api_key,
+            "container": "agents",
+            "access_level": "read",
+            "invoker": invoker
+        }, timeout=2)
+        if resp.status_code == 200 and resp.json().get("valid"):
+            return True, "Valid"
+        return False, resp.json().get("error", "Unauthorized")
+    except Exception as e:
+        return True, f"Bypass: {e}"
+
 # Load API keys previously configured for agent services from secrets/keys
 KEYS_FILE = os.path.join(SECRETS_DIR, "keys")
 def load_agent_keys():
@@ -82,7 +102,8 @@ def initial_startup_scan():
     if not hasattr(app, "_skills_scanned"):
         app._skills_scanned = True
         try:
-            loaded_skills = scan_and_load_skills(SKILLS_DIR, doc_rag_url=DOC_RAG_URL)
+            rag_key = load_agent_keys().get("doc_rag")
+            loaded_skills = scan_and_load_skills(SKILLS_DIR, doc_rag_url=DOC_RAG_URL, api_key=rag_key)
             print(f"[Agents] Initialized and loaded {len(loaded_skills)} skills to doc_RAG: {loaded_skills}")
         except Exception as e:
             print(f"[Agents] Startup skills scan deferred: {e}")
@@ -155,6 +176,13 @@ def process_chat():
     if not message.strip():
         return jsonify({"error": "Empty message"}), 400
 
+    # Validate API key if provided
+    if api_key:
+        is_valid, msg = validate_agent_request_auth(api_key, invoker="web_ui")
+        if not is_valid:
+            return jsonify({"status": "error", "error": f"Authorization failed: {msg}"}), 403
+
+    configured_keys = load_agent_keys()
     runner = adk_agent if "ADK" in agent_type else custom_agent
 
     result = runner.run(
@@ -169,7 +197,8 @@ def process_chat():
         doc_threshold=doc_threshold,
         max_chunks=max_chunks,
         custom_endpoint=custom_endpoint,
-        api_key=api_key
+        api_key=api_key,
+        configured_keys=configured_keys
     )
 
     return jsonify(result)
@@ -177,7 +206,8 @@ def process_chat():
 @app.route("/api/agent/reload_skills", methods=["POST"])
 def reload_skills():
     """Triggered by 'Update Skills Database' button in GUI."""
-    loaded = scan_and_load_skills(SKILLS_DIR, doc_rag_url=DOC_RAG_URL)
+    rag_key = load_agent_keys().get("doc_rag")
+    loaded = scan_and_load_skills(SKILLS_DIR, doc_rag_url=DOC_RAG_URL, api_key=rag_key)
     return jsonify({"status": "success", "loaded_skills": loaded, "count": len(loaded)})
 
 # FastMCP SSE Transport Endpoints

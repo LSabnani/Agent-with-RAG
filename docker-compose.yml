@@ -50,9 +50,11 @@ services:
       - "8003:8003"
     volumes:
       - ./doc_RAG/chroma:/app/chroma
+      - ./doc_RAG/secrets:/app/secrets
     environment:
       - PORT=8003
       - RUNNING_IN_DOCKER=true
+      - SECRETS_DIR=/app/secrets
       - OLLAMA_URL=http://ollama:11434
       - AUTH_SERVICE_URL=http://auth_service:8001/api/auth/validate_key
       - LOGGING_SERVICE_URL=http://logging:8006/api/logs
@@ -71,9 +73,11 @@ services:
       - "8005:8005"
     volumes:
       - ./tools/data:/app/data
+      - ./tools/secrets:/app/secrets
     environment:
       - PORT=8005
       - RUNNING_IN_DOCKER=true
+      - SECRETS_DIR=/app/secrets
       - AUTH_SERVICE_URL=http://auth_service:8001/api/auth/validate_key
       - LOGGING_SERVICE_URL=http://logging:8006/api/logs
     depends_on:
@@ -94,9 +98,11 @@ services:
     environment:
       - PORT=8002
       - RUNNING_IN_DOCKER=true
+      - SECRETS_DIR=/app/secrets
       - DOC_RAG_URL=http://doc_rag:8003
       - TOOLS_URL=http://tools:8005
       - LOGGING_URL=http://logging:8006
+      - AUTH_SERVICE_URL=http://auth_service:8001/api/auth/validate_key
       - SKILLS_DIR=/app/skills
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemma-4-26b-a4b-it}
@@ -115,6 +121,12 @@ services:
       - "8000:8000"
     volumes:
       - ./web_ui/secrets:/app/secrets
+      - ./agents/secrets:/app/container_secrets/agents
+      - ./doc_RAG/secrets:/app/container_secrets/doc_rag
+      - ./tools/secrets:/app/container_secrets/tools
+      - ./auth_service/secrets:/app/container_secrets/auth_service
+      - ./web_ui/secrets:/app/container_secrets/web_ui
+      - ./embedding/secrets:/app/container_secrets/ollama
       - ./sample_docs:/app/sample_docs:ro
       - /var/run/docker.sock:/var/run/docker.sock
     environment:

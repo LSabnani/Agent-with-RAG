@@ -333,7 +333,8 @@ The Documents and Skills container accesses:
 ### Web UI
 - Create a soft link from the ./.env file to the web_ui/secrets/.env file
 - Create a container for the web UI in the web_ui/ folder for all files related to this web UI
-  - Mount a volume to persist all the contents in the ./web_ui/secrets/ folder on the host to the secrets/ folder in the container. This folder will be used to store the API keys used by the web UI.
+  - The secrets/ folder in the container should map to the web_ui/secrets/ folder on the host. Use volume to persist the secrets/ on the host
+  - Store all the container names and API keys configured in the secrets/keys file in the web UI container for the web UI to access the other containers
   - Import GEMINI_MODEL from the secrets/.env file and use it as the default model to make the request to the agent
   - Mount the host Docker socket /var/run/docker.sock to /var/run/docker.sock inside the web_ui container so that the Container Manager can monitor container health/resources and trigger Start/Stop/Restart actions using the Python docker SDK
   - Provide the access to the UI described above.
@@ -372,7 +373,8 @@ The Documents and Skills container accesses:
 - Create a container for the agent in the agents/ folder.
   - Use FastMCP server with async HTTP transport as an interface to provide access to all the services. 
   - Link the .env from the root folder to the agents/secrets folder
-  - The secrets/ folder in the container should map to the agents/secrets/ folder on the host. Use volume to persist the secrets/ on the host.
+  - The secrets/ folder in the container should map to the agents/secrets/ folder on the host. Use volume to persist the secrets/ on the host
+  - Store all the container names and API keys configured in the secrets/keys file in the agent container for the agent to access the other containers
   - Upon start up:
     - import GEMINI_API_KEY from the secrets/.env file
     - import API keys that had been previously configured for the agent services from the secrets/keys file
@@ -456,6 +458,8 @@ The Custom Agent should operate as follow:
 ### Documents and Skills
 - Create a doc_RAG container in the doc_RAG/ folder.
   - Use FastMCP server with async HTTP transport as an interface to provide access to query the documents and skills vector store databases.
+  - The secrets/ folder in the container should map to the doc_RAG/secrets/ folder on the host. Use volume to persist the secrets/ on the host
+  - Store all the container names and API keys configured in the secrets/keys file in the doc_RAG container for the doc_RAG to access the other containers
   - Use the API key sent in the request to check with the Authorization Service whether the service has the authority to access the embedding service
   - Use chromadb to store the documents and skills vector database
   - Each record should contain:
@@ -528,6 +532,8 @@ The Custom Agent should operate as follow:
 
 ### Embedding
 - Create an embedding container in the embedding/ folder.
+  - The secrets/ folder in the container should map to the embedding/secrets/ folder on the host. Use volume to persist the secrets/ on the host
+  - Store all the container names and API keys configured in the secrets/keys file in the embedding container for the embedding container to access the other containers
   - Use the embedding container from ollama
   - Provide the API access to query the embedding service for:
     - The model that is currently loaded to embed the documents and skills
@@ -539,6 +545,8 @@ The Custom Agent should operate as follow:
 - Create a tools container in the tools/ folder.
   - Use FastMCP with async HTTP transport to serve all the access to the tools in the container. 
   - Use the API key sent in the request to check with the Authorization Service whether the service has the authority to access the tools
+  - The secrets/ folder in the container should map to the tools/secrets/ folder on the host. Use volume to persist the secrets/ on the host
+  - Store all the container names and API keys configured in the secrets/keys file in the tools container for the tools container to access the other containers
   - All the calls must include Conversation ID to allow the logging service to track the calls
   - The container should have a volume data/ mounted to ./tools/data/ on the host hard drive to persist any data
 
@@ -649,10 +657,14 @@ All container-to-container communications must record the complete, untruncated 
   - Proxies chronological event traces and complete request/response payloads for a conversation ID.
 - `POST /api/logs/clear` & `POST /api/audit/clear`
   - Clears all recorded logs from the logging database.
-- `GET /api/containers/status`
+- `GET /api/containers/status` (or `/api/containers/list`)
   - Queries local Docker socket (`/var/run/docker.sock`) to report status, CPU%, and memory usage of all 7 containers.
 - `POST /api/containers/<name>/action`
   - Executes container action (`start`, `stop`, `restart`) via Docker SDK.
+- `GET /api/containers/<name>/keys`
+  - Retrieves configured inter-container API keys from the container's `secrets/keys` persistent volume.
+- `POST /api/containers/<name>/keys`
+  - Updates and persists inter-container API keys in the container's `secrets/keys` file (`<target_container>=<api_key>`).
 - `POST /api/system/shutdown` & `POST /api/system/restart`
   - Executes system-wide graceful shutdown or restart.
 

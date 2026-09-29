@@ -35,7 +35,7 @@ def parse_skill_md(file_path):
         "complete_text": content
     }
 
-def scan_and_load_skills(skills_dir, doc_rag_url="http://doc_rag:8003"):
+def scan_and_load_skills(skills_dir, doc_rag_url="http://doc_rag:8003", api_key=None):
     if not os.path.exists(skills_dir):
         return []
 
@@ -43,14 +43,20 @@ def scan_and_load_skills(skills_dir, doc_rag_url="http://doc_rag:8003"):
         doc_rag_url = doc_rag_url.replace("doc_rag:8003", "127.0.0.1:8003")
 
     loaded = []
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
     for entry in os.scandir(skills_dir):
         if entry.is_dir():
             skill_md = os.path.join(entry.path, "SKILL.md")
             if os.path.exists(skill_md):
                 try:
                     data = parse_skill_md(skill_md)
+                    if api_key:
+                        data["api_key"] = api_key
                     # Upload to doc_RAG
-                    resp = requests.post(f"{doc_rag_url}/api/rag/skills/add", json=data, timeout=5)
+                    resp = requests.post(f"{doc_rag_url}/api/rag/skills/add", json=data, headers=headers, timeout=5)
                     if resp.status_code == 200:
                         loaded.append(data["name"])
                 except Exception as e:

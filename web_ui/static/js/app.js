@@ -373,8 +373,19 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update pending bubble with full response and detail box
       updateAgentBubble(pendingAgentBubble, data);
 
+      if (data.conversation_id) {
+        window.currentActiveConversationId = data.conversation_id;
+        selectedConversationId = data.conversation_id;
+      }
+
       // Render retrieved context evidence in Right Card
-      renderEvidence(data.retrieved_evidence || {});
+      if (data.retrieved_evidence && (data.retrieved_evidence.skills?.length || data.retrieved_evidence.documents?.length)) {
+        renderEvidence(data.retrieved_evidence);
+      } else if (data.conversation_id) {
+        await loadContextEvidence(data.conversation_id);
+      } else {
+        renderEvidence({});
+      }
 
     } catch (err) {
       pendingAgentBubble.querySelector('.message-bubble').textContent = `Error: ${err.message}`;
@@ -467,8 +478,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderEvidence(evidence) {
-    const skills = evidence.skills || [];
-    const docs = evidence.documents || [];
+    if (!evidence) evidence = {};
+    if (evidence.retrieved_evidence) evidence = evidence.retrieved_evidence;
+    let skills = evidence.skills || [];
+    let docs = evidence.documents || [];
+
+    // Fallback: if flat evidence array is provided instead of skills/documents
+    if (skills.length === 0 && docs.length === 0 && Array.isArray(evidence.evidence) && evidence.evidence.length > 0) {
+      evidence.evidence.forEach(item => {
+        if (item.category === 'Skill') {
+          skills.push({
+            name: item.title,
+            similarity: item.score,
+            description: item.content
+          });
+        } else {
+          const docName = (item.title || '').split(' (Chunk')[0] || 'Document';
+          let d = docs.find(x => x.doc_name === docName);
+          if (!d) {
+            d = { doc_name: docName, highest_similarity: item.score, chunks: [] };
+            docs.push(d);
+          }
+          if (item.score > d.highest_similarity) d.highest_similarity = item.score;
+          d.chunks.push({ index: 0, similarity: item.score, text: item.content });
+        }
+      });
+    }
 
     if (skills.length === 0 && docs.length === 0) {
       evidenceContainer.innerHTML = `
@@ -491,15 +526,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="similarity-badge">${skills.length} matched</span>
           </div>
           <div class="evidence-doc-body">
-            ${skills.map(s => `
-              <div class="evidence-chunk-item">
-                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                  <strong style="color:#fde047;">${escapeHtml(s.name)}</strong>
-                  <span style="color:var(--text-muted);font-size:0.75rem;">Score: ${s.similarity}</span>
+            ${skills.map(s => {
+              const scoreDisplay = typeof s.similarity === 'number' ? s.similarity.toFixed(4) : (s.similarity || '0.0000');
+              return `
+                <div class="evidence-chunk-item">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <strong style="color:#fde047;">${escapeHtml(s.name)}</strong>
+                    <span style="color:var(--text-muted);font-size:0.75rem;">Score: ${scoreDisplay}</span>
+                  </div>
+                  <div style="color:var(--text-secondary);font-size:0.75rem;">${escapeHtml(s.description || '')}</div>
                 </div>
-                <div style="color:var(--text-secondary);font-size:0.75rem;">${escapeHtml(s.description || '')}</div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
         </div>
       `;
@@ -509,22 +547,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (docs.length > 0) {
       docs.forEach(doc => {
         const chunks = doc.chunks || [];
+        const topScore = typeof doc.highest_similarity === 'number' ? doc.highest_similarity.toFixed(4) : (doc.highest_similarity || '0.0000');
         html += `
           <div class="evidence-doc-group">
             <div class="evidence-doc-header">
               <div class="evidence-doc-title"><span>📄</span> ${escapeHtml(doc.doc_name)}</div>
-              <span class="similarity-badge">Top Match: ${doc.highest_similarity}</span>
+              <span class="similarity-badge">Top Match: ${topScore}</span>
             </div>
             <div class="evidence-doc-body">
-              ${chunks.map(ch => `
-                <div class="evidence-chunk-item">
-                  <div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:0.72rem;color:var(--text-muted);">
-                    <span>Chunk #${ch.index || 0}</span>
-                    <span>Similarity: ${ch.similarity}</span>
+              ${chunks.map(ch => {
+                const chunkScore = typeof ch.similarity === 'number' ? ch.similarity.toFixed(4) : (ch.similarity || '0.0000');
+                return `
+                  <div class="evidence-chunk-item">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:0.72rem;color:var(--text-muted);">
+                      <span>Chunk #${ch.index !== undefined ? ch.index : 0}</span>
+                      <span>Similarity: ${chunkScore}</span>
+                    </div>
+                    <div>${escapeHtml(ch.text)}</div>
                   </div>
-                  <div>${escapeHtml(ch.text)}</div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
           </div>
         `;
@@ -1011,7 +1053,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function selectConversation(cid) {
     selectedConversationId = cid;
+    window.currentActiveConversationId = cid;
     selectedConvBadge.textContent = cid;
+    loadContextEvidence(cid);
 
     // Highlight row
     conversationsTbody.querySelectorAll('.conv-row').forEach(row => {
@@ -1566,12 +1610,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function openContainerDetail(c) {
+  const btnSaveContainerKeys = document.getElementById('btnSaveContainerKeys');
+  let currentDetailContainer = null;
+
+  async function openContainerDetail(c) {
+    currentDetailContainer = c;
     modalContainerName.textContent = c.name;
     const isRunning = (c.status === 'running');
     modalContainerStatus.textContent = isRunning ? 'Active (Running)' : 'Stopped / Inactive';
     modalContainerStatus.className = `badge ${isRunning ? 'badge-user' : 'badge-admin'}`;
     modalContainerPort.textContent = c.port_mapping || `${c.port}:${c.port}`;
+
+    const notice = document.getElementById('modalContainerKeyNotice');
+    if (notice) {
+      notice.style.display = isRunning ? 'none' : 'flex';
+    }
+
+    // Load saved API keys for this container from secrets/keys
+    let savedKeys = {};
+    try {
+      const resp = await fetch(`/api/containers/${c.name}/keys`);
+      if (resp.ok) {
+        const kdata = await resp.json();
+        savedKeys = kdata.keys || {};
+      }
+    } catch (e) {
+      console.warn("Failed to fetch keys for container:", e);
+    }
 
     modalContainerDepsList.innerHTML = '';
     const accesses = c.accesses || [];
@@ -1580,14 +1645,29 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       accesses.forEach(dep => {
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#182234; padding:6px 12px; border-radius:4px;';
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#182234; padding:8px 12px; border-radius:4px; gap:8px;';
+        const keyVal = savedKeys[dep] || '';
         if (!isRunning) {
-          row.innerHTML = `<span>🔗 ${dep}</span> <input type="text" class="input-text" style="padding:2px 8px; font-size:0.8rem; width:160px;" placeholder="Add API key...">`;
+          row.innerHTML = `<span style="font-weight: 500;">🔗 ${dep}</span> 
+            <input type="text" class="input-text container-key-input" data-dep="${dep}" value="${keyVal}" style="padding:4px 8px; font-size:0.8rem; width:220px;" placeholder="Add API key for ${dep}...">`;
         } else {
-          row.innerHTML = `<span>🔗 ${dep}</span> <span class="text-muted" style="font-size:0.8rem;">Connected (Authenticated)</span>`;
+          const keyBadge = keyVal ? `<span class="badge badge-user" title="${keyVal}">Key: ${keyVal.slice(0, 8)}...</span>` : `<span class="text-muted" style="font-size:0.8rem;">No key set</span>`;
+          row.innerHTML = `<span style="font-weight: 500;">🔗 ${dep}</span> 
+            <div style="display:flex; align-items:center; gap:6px;">
+              ${keyBadge}
+              <span class="text-muted" style="font-size:0.75rem;">(Read only)</span>
+            </div>`;
         }
         modalContainerDepsList.appendChild(row);
       });
+    }
+
+    if (btnSaveContainerKeys) {
+      btnSaveContainerKeys.style.display = isRunning ? 'none' : 'inline-block';
+      btnSaveContainerKeys.textContent = 'Save Keys';
+      btnSaveContainerKeys.onclick = async () => {
+        await saveContainerKeysFromModal(c.name);
+      };
     }
 
     modalContainerActionBtnContainer.innerHTML = '';
@@ -1599,11 +1679,45 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       actionBtn.className = 'btn-start-action';
       actionBtn.textContent = 'Start Container';
-      actionBtn.onclick = () => triggerContainerAction(c.name, 'start');
+      actionBtn.onclick = async () => {
+        await saveContainerKeysFromModal(c.name);
+        triggerContainerAction(c.name, 'start');
+      };
     }
     modalContainerActionBtnContainer.appendChild(actionBtn);
 
     containerDetailModal.classList.remove('hidden');
+  }
+
+  async function saveContainerKeysFromModal(containerName) {
+    const inputs = modalContainerDepsList.querySelectorAll('.container-key-input');
+    const keysObj = {};
+    inputs.forEach(inp => {
+      const dep = inp.getAttribute('data-dep');
+      if (dep) {
+        keysObj[dep] = inp.value.trim();
+      }
+    });
+
+    try {
+      const resp = await fetch(`/api/containers/${containerName}/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys: keysObj })
+      });
+      if (resp.ok) {
+        if (btnSaveContainerKeys) {
+          btnSaveContainerKeys.textContent = '✓ Saved!';
+          setTimeout(() => {
+            if (btnSaveContainerKeys) btnSaveContainerKeys.textContent = 'Save Keys';
+          }, 2000);
+        }
+      } else {
+        alert('Failed to save container keys');
+      }
+    } catch (e) {
+      alert(`Error saving container keys: ${e}`);
+    }
   }
 
   async function triggerContainerAction(name, act) {
@@ -2245,48 +2359,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Enhanced Context Evidence loader hook in chat flow
+  // Enhanced Context Evidence loader hook in chat and audit flow
   async function loadContextEvidence(convId) {
+    if (!convId) return;
     try {
-      const resp = await fetch(`/api/evidence/${convId}`);
+      const resp = await fetch(`/api/evidence/${encodeURIComponent(convId)}`);
+      if (!resp.ok) return;
       const data = await resp.json();
-      const items = data.evidence || [];
-
-      evidenceContainer.innerHTML = '';
-      if (items.length === 0) {
-        evidenceContainer.innerHTML = '<div class="evidence-empty"><span class="empty-icon">📭</span><p>No vector context retrieved for this conversation yet.</p></div>';
-        return;
-      }
-
-      items.forEach(ev => {
-        const card = document.createElement('div');
-        card.className = 'evidence-card';
-        card.innerHTML = `
-          <div class="evidence-card-header">
-            <div>
-              <span class="evidence-card-title">${escapeHtml(ev.title)}</span>
-              <span class="evidence-badge ${ev.category === 'Skill' ? 'skill-badge' : 'doc-badge'}">${ev.category}</span>
-            </div>
-            <span class="evidence-score">Score: ${(ev.score * 100).toFixed(1)}%</span>
-          </div>
-          <div class="evidence-card-content">${escapeHtml(ev.content)}</div>
-        `;
-        evidenceContainer.appendChild(card);
-      });
-    } catch (e) {}
+      renderEvidence(data.retrieved_evidence || data);
+    } catch (e) {
+      console.warn("Failed to load context evidence:", e);
+    }
   }
-
-  // Hook chat completion to reload context evidence
-  const origAppendAgentMessage = window.appendAgentMessage;
-  // Poll evidence after message
-  btnSendMessage.addEventListener('click', () => {
-    setTimeout(() => {
-      // Periodic check for evidence update
-      if (window.currentActiveConversationId) {
-        loadContextEvidence(window.currentActiveConversationId);
-      }
-    }, 2500);
-  });
 
   // Initial Data Load
   loadModelsAndSkills();

@@ -34,6 +34,25 @@ DATA_DIR = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "d
 CSV_PATH = os.path.join(DATA_DIR, "employee_database.csv")
 AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth_service:8001/api/auth/validate_key")
 LOGGING_SERVICE_URL = os.environ.get("LOGGING_SERVICE_URL", "http://logging:8006/api/logs")
+SECRETS_DIR = os.environ.get("SECRETS_DIR", os.path.join(os.path.dirname(__file__), "secrets"))
+KEYS_FILE = os.path.join(SECRETS_DIR, "keys")
+
+def load_tools_keys():
+    keys = {}
+    if os.path.exists(KEYS_FILE):
+        try:
+            with open(KEYS_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            keys[k.strip()] = v.strip()
+                        else:
+                            keys[line] = line
+        except Exception as e:
+            print(f"[Tools] Error reading keys file: {e}")
+    return keys
 
 # Seed employee database on startup if needed
 try:

@@ -29,6 +29,25 @@ AUTH_SERVICE_URL = os.environ.get("AUTH_SERVICE_URL", "http://auth_service:8001/
 LOGGING_SERVICE_URL = os.environ.get("LOGGING_SERVICE_URL", "http://logging:8006/api/logs")
 CURRENT_EMBED_MODEL = os.environ.get("EMBED_MODEL", "bge-large:latest")
 
+SECRETS_DIR = os.environ.get("SECRETS_DIR", os.path.join(os.path.dirname(__file__), "secrets"))
+KEYS_FILE = os.path.join(SECRETS_DIR, "keys")
+def load_rag_keys():
+    keys = {}
+    if os.path.exists(KEYS_FILE):
+        try:
+            with open(KEYS_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            keys[k.strip()] = v.strip()
+                        else:
+                            keys[line] = line
+        except Exception as e:
+            print(f"[doc_RAG] Error reading keys file: {e}")
+    return keys
+
 chroma_client = chromadb.PersistentClient(path=CHROMA_DIR, settings=Settings(anonymized_telemetry=False))
 doc_collection = chroma_client.get_or_create_collection(name="documents", metadata={"hnsw:space": "cosine"})
 skill_collection = chroma_client.get_or_create_collection(name="skills", metadata={"hnsw:space": "cosine"})
