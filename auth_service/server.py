@@ -115,6 +115,10 @@ def init_db():
         conn.commit()
         print("Initialized default admin account: admin / admin123")
 
+    # Purge any deleted keys
+    cursor.execute("DELETE FROM api_keys WHERE status = 'delete'")
+    conn.commit()
+
     conn.close()
 
 init_db()
@@ -344,7 +348,7 @@ def get_user_activity_logs():
 def list_keys():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, key_name, key_prefix, creator_email, created_at, expires_at, containers, access_levels, status FROM api_keys ORDER BY id DESC")
+    cursor.execute("SELECT id, key_name, key_prefix, creator_email, created_at, expires_at, containers, access_levels, status FROM api_keys WHERE status != 'delete' ORDER BY id DESC")
     keys = []
     for r in cursor.fetchall():
         item = dict(r)
@@ -416,6 +420,8 @@ def generate_key():
 @app.route("/api/keys/<int:key_id>", methods=["PUT"])
 def update_key(key_id):
     data = request.get_json(silent=True) or {}
+    key_name = data.get("key_name")
+    expires_at = data.get("expires_at")
     status = data.get("status")
     containers = data.get("containers")
     access_levels = data.get("access_levels")
@@ -425,6 +431,12 @@ def update_key(key_id):
 
     updates = []
     params = []
+    if key_name:
+        updates.append("key_name = ?")
+        params.append(key_name)
+    if expires_at:
+        updates.append("expires_at = ?")
+        params.append(expires_at)
     if status:
         updates.append("status = ?")
         params.append(status)
@@ -450,10 +462,24 @@ def update_key(key_id):
 def delete_key(key_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("UPDATE api_keys SET status = 'delete' WHERE id = ?", (key_id,))
+    cursor.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
     conn.commit()
     conn.close()
     return jsonify({"status": "success", "message": "API key deleted"})
+
+@app.route("/api/keys/bulk_delete", methods=["POST"])
+def bulk_delete_keys():
+    data = request.get_json(silent=True) or {}
+    key_ids = data.get("key_ids", [])
+    if not key_ids:
+        return jsonify({"error": "No key IDs provided"}), 400
+    conn = get_db()
+    cursor = conn.cursor()
+    placeholders = ",".join("?" for _ in key_ids)
+    cursor.execute(f"DELETE FROM api_keys WHERE id IN ({placeholders})", key_ids)
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success", "deleted_count": len(key_ids)})
 
 @app.route("/api/auth/validate_key", methods=["POST"])
 def validate_key():

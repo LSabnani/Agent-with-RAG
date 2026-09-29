@@ -218,7 +218,8 @@ class CustomAgent:
                 "max_turns": max_turns,
                 "skill_selector": skill_selector
             },
-            conv_id=conversation_id
+            conv_id=conversation_id,
+            model=model
         )
 
         steps.append({
@@ -507,7 +508,8 @@ class CustomAgent:
                 "steps": steps
             },
             conv_id=conversation_id,
-            dur_ms=total_elapsed
+            dur_ms=total_elapsed,
+            model=model
         )
 
         return {

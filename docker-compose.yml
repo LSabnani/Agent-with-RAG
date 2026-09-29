@@ -115,6 +115,7 @@ services:
       - "8000:8000"
     volumes:
       - ./web_ui/secrets:/app/secrets
+      - ./sample_docs:/app/sample_docs:ro
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PORT=8000

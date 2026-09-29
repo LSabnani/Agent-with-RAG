@@ -38,7 +38,7 @@ def resolve_url(url, default_host, default_port):
         return url.replace(f"{default_host}:{default_port}", f"127.0.0.1:{default_port}")
     return url
 
-def log_event(invoker, recipient, event_type, short_desc, req_payload, resp_payload, conv_id=None, status="success"):
+def log_event(invoker, recipient, event_type, short_desc, req_payload, resp_payload, conv_id=None, status="success", duration_ms=0, model="", input_tokens=0, output_tokens=0):
     try:
         url = resolve_url(LOGGING_SERVICE_URL, "logging", 8006)
         requests.post(url, json={
@@ -49,6 +49,10 @@ def log_event(invoker, recipient, event_type, short_desc, req_payload, resp_payl
             "short_description": short_desc,
             "payload": {"request": req_payload, "response": resp_payload},
             "status": status,
+            "duration_ms": duration_ms,
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }, timeout=2)
     except Exception:
@@ -99,7 +103,10 @@ def get_embedding(text, model=None, conv_id=None, user_id=None):
                     "text_sample": text[:100]
                 },
                 resp_payload={"dimension": len(vec), "duration_ms": dur_ms, "status": "success"},
-                conv_id=conv_id
+                conv_id=conv_id,
+                duration_ms=dur_ms,
+                model=m,
+                status="success"
             )
             return vec
     except Exception:
@@ -144,11 +151,56 @@ def list_documents_and_skills():
         doc_count = doc_collection.count()
         skill_count = skill_collection.count()
 
-        all_doc_meta = doc_collection.get(include=["metadatas"])["metadatas"] or []
-        doc_names = sorted(list(set(m.get("name") or m.get("document_name") for m in all_doc_meta if m.get("name") or m.get("document_name"))))
+        all_doc_meta = doc_collection.get(include=["metadatas", "documents"])
+        metas = all_doc_meta.get("metadatas") or []
+        texts = all_doc_meta.get("documents") or []
 
-        all_skill_meta = skill_collection.get(include=["metadatas"])["metadatas"] or []
-        skill_names = sorted(list(set(m.get("name") or m.get("skill_name") for m in all_skill_meta if m.get("name") or m.get("skill_name"))))
+        doc_stats = {}
+        for m, txt in zip(metas, texts):
+            m = m or {}
+            d_name = m.get("document_name") or m.get("name") or "Unknown"
+            if d_name not in doc_stats:
+                doc_stats[d_name] = {
+                    "doc_name": d_name,
+                    "name": d_name,
+                    "type": "Document",
+                    "chunk_count": 0,
+                    "total_chars": 0
+                }
+            doc_stats[d_name]["chunk_count"] += 1
+            c_len = len(txt) if txt else int(m.get("chunk_size", 0))
+            doc_stats[d_name]["total_chars"] += c_len
+
+        all_skill_meta = skill_collection.get(include=["metadatas", "documents"])
+        s_metas = all_skill_meta.get("metadatas") or []
+        s_texts = all_skill_meta.get("documents") or []
+
+        skill_stats = {}
+        for sm, stxt in zip(s_metas, s_texts):
+            sm = sm or {}
+            s_name = sm.get("skill_name") or sm.get("name") or "Unknown Skill"
+            if s_name not in skill_stats:
+                skill_stats[s_name] = {
+                    "doc_name": s_name,
+                    "name": s_name,
+                    "type": "Skill",
+                    "chunk_count": 0,
+                    "total_chars": 0
+                }
+            skill_stats[s_name]["chunk_count"] += 1
+            s_len = len(stxt) if stxt else int(sm.get("chunk_size", 0))
+            skill_stats[s_name]["total_chars"] += s_len
+
+        detailed_docs = list(doc_stats.values())
+        detailed_docs.sort(key=lambda x: x["doc_name"].lower())
+
+        detailed_skills = list(skill_stats.values())
+        detailed_skills.sort(key=lambda x: x["doc_name"].lower())
+
+        all_items = detailed_docs + detailed_skills
+
+        skill_names = [s["doc_name"] for s in detailed_skills]
+        doc_names = [d["doc_name"] for d in detailed_docs]
 
         total_bytes = 0
         for root, dirs, files in os.walk(CHROMA_DIR):
@@ -158,12 +210,19 @@ def list_documents_and_skills():
 
         return jsonify({
             "status": "success",
-            "documents": doc_names,
+            "documents": all_items,
+            "document_names": doc_names,
             "skills": skill_names,
-            "count_documents": len(doc_names),
-            "count_skills": len(skill_names),
-            "chunks_count": doc_count,
-            "db_size_mb": db_size_mb
+            "count_documents": len(detailed_docs),
+            "total_documents": len(detailed_docs),
+            "documents_count": len(detailed_docs),
+            "count_skills": len(detailed_skills),
+            "total_skills": len(detailed_skills),
+            "total_items": len(all_items),
+            "chunks_count": doc_count + skill_count,
+            "total_chunks": doc_count + skill_count,
+            "db_size_mb": db_size_mb,
+            "active_model": CURRENT_EMBED_MODEL
         })
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
@@ -324,11 +383,14 @@ def legacy_add_skill():
 @app.route("/api/rag/delete", methods=["POST"])
 @app.route("/api/rag/documents/delete", methods=["POST"])
 @app.route("/api/rag/documents/<path:doc_name>", methods=["DELETE"])
+@app.route("/api/rag/documents", methods=["DELETE"])
 def delete_document_or_skill(doc_name=None):
+    import urllib.parse
     data = request.get_json(silent=True) or {}
     user_id = data.get("user_id") or request.args.get("user_id") or "admin"
     doc_type = (data.get("type") or request.args.get("type") or "document").lower()
-    name = (data.get("name") or doc_name or request.args.get("name") or "").strip()
+    raw_name = (data.get("name") or doc_name or request.args.get("doc_name") or request.args.get("name") or "").strip()
+    name = urllib.parse.unquote(raw_name) if raw_name else ""
     api_key = request.headers.get("X-API-Key") or request.args.get("api_key") or data.get("api_key")
 
     is_valid, msg = check_auth(api_key, "write", invoker="web_ui")
@@ -353,16 +415,33 @@ def delete_document_or_skill(doc_name=None):
                 doc_collection.delete(ids=d_all["ids"])
                 deleted_count += len(d_all["ids"])
     else:
-        target_col = skill_collection if "skill" in doc_type else doc_collection
-        all_data = target_col.get(include=["metadatas"])
-        ids_to_del = []
-        if all_data.get("ids") and all_data.get("metadatas"):
-            for i, m in zip(all_data["ids"], all_data["metadatas"]):
-                if (m.get("name") == name or m.get("document_name") == name or m.get("skill_name") == name):
-                    ids_to_del.append(i)
-        if ids_to_del:
-            target_col.delete(ids=ids_to_del)
-            deleted_count = len(ids_to_del)
+        target_cols = [skill_collection] if "skill" in doc_type else ([doc_collection] if "document" in doc_type else [doc_collection, skill_collection])
+        for col in target_cols:
+            all_data = col.get(include=["metadatas"])
+            ids_to_del = []
+            if all_data.get("ids") and all_data.get("metadatas"):
+                for i, m in zip(all_data["ids"], all_data["metadatas"]):
+                    m = m or {}
+                    m_name = m.get("name") or m.get("document_name") or m.get("skill_name") or ""
+                    if m_name == name or m_name == raw_name or m_name.lower() == name.lower():
+                        ids_to_del.append(i)
+            if ids_to_del:
+                col.delete(ids=ids_to_del)
+                deleted_count += len(ids_to_del)
+
+        if deleted_count == 0 and len(target_cols) == 1:
+            other_col = doc_collection if target_cols[0] == skill_collection else skill_collection
+            all_data = other_col.get(include=["metadatas"])
+            ids_to_del = []
+            if all_data.get("ids") and all_data.get("metadatas"):
+                for i, m in zip(all_data["ids"], all_data["metadatas"]):
+                    m = m or {}
+                    m_name = m.get("name") or m.get("document_name") or m.get("skill_name") or ""
+                    if m_name == name or m_name == raw_name or m_name.lower() == name.lower():
+                        ids_to_del.append(i)
+            if ids_to_del:
+                other_col.delete(ids=ids_to_del)
+                deleted_count += len(ids_to_del)
 
     log_event(
         invoker="Vector DB",
@@ -386,6 +465,7 @@ def delete_document_or_skill(doc_name=None):
 # 4. Query Documents and Skills
 @app.route("/api/rag/query", methods=["POST"])
 def query_documents():
+    query_start_time = time.time()
     data = request.get_json(silent=True) or {}
     user_id = data.get("user_id", "user")
     conv_id = data.get("conversation_id") or f"conv_{int(time.time())}"
@@ -471,6 +551,7 @@ def query_documents():
             "conversation_id": conv_id,
             "date_time": datetime.now(timezone.utc).isoformat(),
             "operation": "query_response",
+            "duration_ms": int((time.time() - query_start_time) * 1000) if 'query_start_time' in locals() else 0,
             "matched_items": [
                 {
                     "name": m["name"],
@@ -482,7 +563,9 @@ def query_documents():
             ],
             "count": len(matches)
         },
-        conv_id=conv_id
+        conv_id=conv_id,
+        duration_ms=int((time.time() - query_start_time) * 1000) if 'query_start_time' in locals() else 0,
+        model=CURRENT_EMBED_MODEL
     )
 
     return jsonify({
@@ -517,6 +600,18 @@ def reset_database():
     )
 
     return jsonify({"status": "success", "message": "Documents database reset complete"})
+
+@app.route("/api/rag/model", methods=["GET", "POST"])
+def manage_embed_model():
+    global CURRENT_EMBED_MODEL
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        new_model = data.get("model")
+        if new_model:
+            CURRENT_EMBED_MODEL = new_model
+            return jsonify({"status": "success", "active_model": CURRENT_EMBED_MODEL})
+        return jsonify({"error": "No model specified"}), 400
+    return jsonify({"status": "success", "active_model": CURRENT_EMBED_MODEL})
 
 # FastMCP SSE Transport Endpoints
 @app.route("/sse", methods=["GET"])

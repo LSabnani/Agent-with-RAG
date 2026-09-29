@@ -54,7 +54,7 @@ def resolve_url(url, host, port):
         return url.replace(f"{host}:{port}", f"127.0.0.1:{port}")
     return url
 
-def log_event(invoker, recipient, event_type, desc, payload, conv_id=None, status="success"):
+def log_event(invoker, recipient, event_type, desc, payload, conv_id=None, status="success", duration_ms=0, model=""):
     try:
         url = resolve_url(LOGGING_URL, "logging", 8006)
         requests.post(f"{url}/api/logs", json={
@@ -65,6 +65,8 @@ def log_event(invoker, recipient, event_type, desc, payload, conv_id=None, statu
             "short_description": desc,
             "payload": payload,
             "status": status,
+            "duration_ms": duration_ms,
+            "model": model,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }, timeout=2)
     except Exception:
@@ -230,6 +232,15 @@ def proxy_key_action(kid):
         r = requests.delete(f"{url}/api/keys/{kid}", timeout=5)
     return jsonify(r.json()), r.status_code
 
+@app.route("/api/keys/bulk_delete", methods=["POST"])
+def proxy_bulk_delete_keys():
+    url = resolve_url(AUTH_URL, "auth_service", 8001)
+    try:
+        r = requests.post(f"{url}/api/keys/bulk_delete", json=request.get_json(silent=True), timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
 # -------------------------------------------------------------
 # Chat & Agents APIs
 # -------------------------------------------------------------
@@ -270,7 +281,9 @@ def proxy_chat():
             event_type="chat_response",
             desc=f"Web UI received response from agent ({res_data.get('elapsed_ms', 0)}ms)",
             payload=res_data,
-            conv_id=conv_id
+            conv_id=conv_id,
+            duration_ms=res_data.get("elapsed_ms", 0),
+            model=res_data.get("model", "")
         )
         return jsonify(res_data), r.status_code
     except Exception as e:
@@ -323,16 +336,150 @@ def get_context_evidence(conv_id):
 # -------------------------------------------------------------
 # VectorDB Mgnt APIs
 # -------------------------------------------------------------
+EMBEDDING_CATALOG = [
+    {
+        "name": "bge-large:latest",
+        "short_name": "bge-large",
+        "dimensions": 1024,
+        "context_window": "512",
+        "size": "670MB",
+        "description": "BAAI general embedding model large (high accuracy)",
+    },
+    {
+        "name": "bge-m3:latest",
+        "short_name": "bge-m3",
+        "dimensions": 1024,
+        "context_window": "8K",
+        "size": "1.2GB",
+        "description": "Multi-lingual, multi-functionality embedding model",
+    },
+    {
+        "name": "nomic-embed-text:latest",
+        "short_name": "nomic-embed-text",
+        "dimensions": 768,
+        "context_window": "8K",
+        "size": "274MB",
+        "description": "High-performing 8192 context window text embedding",
+    },
+    {
+        "name": "all-minilm:latest",
+        "short_name": "all-minilm",
+        "dimensions": 384,
+        "context_window": "512",
+        "size": "46MB",
+        "description": "Lightweight fast sentence transformer",
+    }
+]
+
 @app.route("/api/vectordb/stats", methods=["GET"])
+@app.route("/api/rag/stats", methods=["GET"])
 def proxy_vectordb_stats():
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
     try:
         r = requests.get(f"{url}/api/rag/stats", timeout=5)
-        return jsonify(r.json())
+        data = r.json()
+        doc_count = data.get("total_documents", data.get("count_documents", 0))
+        chunk_count = data.get("total_chunks", data.get("chunks_count", 0))
+        return jsonify({
+            "status": "success",
+            "total_documents": doc_count,
+            "count_documents": doc_count,
+            "documents_count": doc_count,
+            "total_chunks": chunk_count,
+            "chunks_count": chunk_count,
+            "db_size_mb": data.get("db_size_mb", 0.0),
+            "active_model": data.get("active_model", "bge-large:latest"),
+            "documents": data.get("documents", [])
+        })
     except Exception as e:
-        return jsonify({"chunks_count": 0, "documents_count": 0, "db_size_mb": 0, "documents": []})
+        return jsonify({
+            "status": "error",
+            "chunks_count": 0,
+            "total_chunks": 0,
+            "documents_count": 0,
+            "total_documents": 0,
+            "db_size_mb": 0.0,
+            "active_model": "bge-large:latest",
+            "documents": []
+        })
+
+@app.route("/api/vectordb/documents", methods=["GET"])
+@app.route("/api/rag/documents", methods=["GET"])
+def proxy_vectordb_documents():
+    url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
+    try:
+        r = requests.get(f"{url}/api/rag/documents", timeout=5)
+        data = r.json()
+        return jsonify({
+            "status": "success",
+            "documents": data.get("documents", []),
+            "total_documents": data.get("total_documents", len(data.get("documents", []))),
+            "total_chunks": data.get("total_chunks", data.get("chunks_count", 0)),
+            "db_size_mb": data.get("db_size_mb", 0.0),
+            "active_model": data.get("active_model", "bge-large:latest")
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "documents": [], "error": str(e)}), 502
+
+@app.route("/api/vectordb/models", methods=["GET"])
+@app.route("/api/vectordb/ollama_models", methods=["GET"])
+def get_vectordb_models():
+    # 1. Get active model from doc_rag
+    active_model = "bge-large:latest"
+    doc_rag_url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
+    try:
+        s_res = requests.get(f"{doc_rag_url}/api/rag/stats", timeout=3)
+        if s_res.ok:
+            active_model = s_res.json().get("active_model", active_model)
+    except Exception:
+        pass
+
+    # 2. Get installed tags from ollama
+    installed_tags = set()
+    ollama_url = resolve_url(OLLAMA_URL, "ollama", 11434)
+    try:
+        r = requests.get(f"{ollama_url}/api/tags", timeout=4)
+        if r.ok:
+            for m in r.json().get("models", []):
+                m_name = m.get("name", "")
+                installed_tags.add(m_name)
+                installed_tags.add(m_name.split(":")[0])
+    except Exception:
+        installed_tags = {"bge-large", "bge-large:latest", "bge-m3", "bge-m3:latest", "nomic-embed-text", "nomic-embed-text:latest", "all-minilm", "all-minilm:latest"}
+
+    active_base = active_model.split(":")[0]
+    result_models = []
+    for cat in EMBEDDING_CATALOG:
+        m_name = cat["name"]
+        m_short = cat["short_name"]
+        is_installed = (m_name in installed_tags or m_short in installed_tags)
+        is_active = (m_name == active_model or m_short == active_model or m_short == active_base or m_name.startswith(active_base))
+        
+        status = "Available to Pull"
+        if is_active:
+            status = "Installed (Active)"
+        elif is_installed:
+            status = "Installed"
+
+        result_models.append({
+            "name": m_name,
+            "dimensions": cat["dimensions"],
+            "context_window": cat["context_window"],
+            "size": cat["size"],
+            "description": cat["description"],
+            "status": status,
+            "is_active": is_active,
+            "is_installed": is_installed
+        })
+
+    return jsonify({
+        "status": "success",
+        "models": result_models,
+        "active_model": active_model
+    })
 
 @app.route("/api/vectordb/update_skills", methods=["POST"])
+@app.route("/api/skills/update", methods=["POST"])
 def proxy_update_skills():
     url = resolve_url(AGENTS_URL, "agents", 8002)
     try:
@@ -342,11 +489,12 @@ def proxy_update_skills():
         return jsonify({"error": str(e)}), 502
 
 @app.route("/api/vectordb/populate", methods=["POST"])
+@app.route("/api/vectordb/ingest", methods=["POST"])
 def populate_vectordb():
     data = request.get_json(silent=True) or {}
     source = data.get("source", "").strip()
     chunk_size = int(data.get("chunk_size", 800))
-    overlap = int(data.get("overlap", 100))
+    overlap = int(data.get("chunk_overlap") or data.get("overlap", 100))
 
     if not source:
         return jsonify({"error": "URL or local directory path required"}), 400
@@ -366,27 +514,41 @@ def populate_vectordb():
             doc_name = soup.title.string.strip() if soup.title else source
         except Exception as e:
             return jsonify({"error": f"Failed to fetch URL: {e}"}), 400
-    # If local path
-    elif os.path.exists(source):
-        try:
-            if os.path.isfile(source):
-                with open(source, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-                doc_name = os.path.basename(source)
-            elif os.path.isdir(source):
-                texts = []
-                for root, dirs, files in os.walk(source):
-                    for file in files:
-                        if file.endswith((".txt", ".md", ".csv")):
-                            p = os.path.join(root, file)
-                            with open(p, "r", encoding="utf-8", errors="ignore") as f:
-                                texts.append(f"--- Document: {file} ---\n" + f.read())
-                content = "\n\n".join(texts)
-                doc_name = os.path.basename(source)
-        except Exception as e:
-            return jsonify({"error": f"Failed to read local file/dir: {e}"}), 400
     else:
-        return jsonify({"error": f"Source not accessible: {source}"}), 400
+        # Check potential local paths
+        resolved_path = None
+        candidates = [
+            source,
+            os.path.join("/app", source),
+            os.path.join("/app/sample_docs", os.path.basename(source)),
+            os.path.join(os.getcwd(), source),
+            os.path.join(os.path.dirname(__file__), "..", source)
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                resolved_path = c
+                break
+
+        if resolved_path and os.path.exists(resolved_path):
+            try:
+                if os.path.isfile(resolved_path):
+                    with open(resolved_path, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    doc_name = os.path.basename(resolved_path).replace(".md", "").replace(".txt", "")
+                elif os.path.isdir(resolved_path):
+                    texts = []
+                    for root, dirs, files in os.walk(resolved_path):
+                        for file in files:
+                            if file.endswith((".txt", ".md", ".csv")):
+                                p = os.path.join(root, file)
+                                with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                                    texts.append(f"--- Document: {file} ---\n" + f.read())
+                    content = "\n\n".join(texts)
+                    doc_name = os.path.basename(os.path.normpath(resolved_path))
+            except Exception as e:
+                return jsonify({"error": f"Failed to read local file/dir: {e}"}), 400
+        else:
+            return jsonify({"error": f"Source not accessible: {source}"}), 400
 
     if not content:
         return jsonify({"error": "Extracted text content is empty"}), 400
@@ -399,49 +561,66 @@ def populate_vectordb():
             "chunk_size": chunk_size,
             "overlap": overlap
         }, timeout=30)
-        return jsonify(r.json()), r.status_code
+        res_data = r.json()
+        if r.status_code == 200:
+            res_data["message"] = f"Successfully ingested '{doc_name}' ({res_data.get('chunks_created', 0)} chunks)."
+        return jsonify(res_data), r.status_code
     except Exception as e:
         return jsonify({"error": f"Vector store unreachable: {e}"}), 502
 
+@app.route("/api/vectordb/document", methods=["DELETE"])
 @app.route("/api/vectordb/delete/<path:doc_name>", methods=["DELETE"])
-def proxy_delete_doc(doc_name):
+@app.route("/api/rag/documents/<path:doc_name>", methods=["DELETE"])
+def proxy_delete_doc(doc_name=None):
+    import urllib.parse
+    raw_name = doc_name or request.args.get("doc_name") or request.args.get("name") or ""
+    if not raw_name:
+        data = request.get_json(silent=True) or {}
+        raw_name = data.get("doc_name") or data.get("name") or ""
+    
+    if not raw_name:
+        return jsonify({"error": "Document name required"}), 400
+
+    name = urllib.parse.unquote(raw_name)
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
-    r = requests.delete(f"{url}/api/rag/documents/{doc_name}", timeout=5)
-    return jsonify(r.json()), r.status_code
+    try:
+        r = requests.delete(f"{url}/api/rag/documents/{urllib.parse.quote(name)}", timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete document: {e}"}), 502
 
 @app.route("/api/vectordb/reset", methods=["POST"])
 def proxy_reset_db():
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
-    r = requests.post(f"{url}/api/rag/reset", timeout=5)
-    return jsonify(r.json()), r.status_code
-
-@app.route("/api/vectordb/ollama_models", methods=["GET"])
-def get_ollama_models():
-    url = resolve_url(OLLAMA_URL, "ollama", 11434)
     try:
-        r = requests.get(f"{url}/api/tags", timeout=4)
-        models = [m["name"] for m in r.json().get("models", [])]
-        return jsonify({"models": models, "active": "nomic-embed-text"})
-    except Exception:
-        return jsonify({"models": ["nomic-embed-text", "bge-m3", "all-minilm"], "active": "nomic-embed-text"})
+        r = requests.post(f"{url}/api/rag/reset", timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"error": f"Failed to reset database: {e}"}), 502
 
+@app.route("/api/vectordb/change-model", methods=["POST"])
 @app.route("/api/vectordb/change_model", methods=["POST"])
 def change_embed_model():
     data = request.get_json(silent=True) or {}
-    new_model = data.get("model", "nomic-embed-text")
-    # Reset Vector DB
+    new_model = data.get("model", "bge-large:latest")
+    
+    # 1. Update doc_rag model and reset DB
     url = resolve_url(DOC_RAG_URL, "doc_rag", 8003)
     try:
+        requests.post(f"{url}/api/rag/model", json={"model": new_model}, timeout=5)
         requests.post(f"{url}/api/rag/reset", timeout=5)
-    except Exception:
-        pass
-    # Rescan skills
+    except Exception as e:
+        app.logger.warning(f"Error resetting doc_rag on model change: {e}")
+
+    # 2. Rescan skills
     agents_url = resolve_url(AGENTS_URL, "agents", 8002)
     try:
         requests.post(f"{agents_url}/api/agent/reload_skills", timeout=10)
-    except Exception:
-        pass
-    return jsonify({"status": "success", "active_model": new_model})
+    except Exception as e:
+        app.logger.warning(f"Error reloading skills on model change: {e}")
+
+    return jsonify({"status": "success", "active_model": new_model, "message": f"Successfully changed embedder model to {new_model}"})
+
 
 # -------------------------------------------------------------
 # Telemetry & Audit Logs APIs
@@ -456,13 +635,14 @@ def proxy_telemetry():
         return jsonify({"models_used": [], "total_prompts": 0, "total_responses": 0, "total_errors": 0, "total_input_tokens": 0, "total_output_tokens": 0, "timeline": [], "metrics": {}})
 
 @app.route("/api/audit/conversations", methods=["GET"])
+@app.route("/api/logs", methods=["GET"])
 def proxy_audit_conversations():
     url = resolve_url(LOGGING_URL, "logging", 8006)
     try:
         r = requests.get(f"{url}/api/conversations", timeout=5)
         return jsonify(r.json())
     except Exception:
-        return jsonify({"conversations": []})
+        return jsonify({"conversations": [], "statistics": {}})
 
 @app.route("/api/audit/events/<conv_id>", methods=["GET"])
 @app.route("/api/logs/<conv_id>", methods=["GET"])
@@ -475,6 +655,7 @@ def proxy_audit_events(conv_id):
         return jsonify({"events": []})
 
 @app.route("/api/audit/clear", methods=["POST"])
+@app.route("/api/logs/clear", methods=["POST"])
 def proxy_clear_logs():
     url = resolve_url(LOGGING_URL, "logging", 8006)
     try:

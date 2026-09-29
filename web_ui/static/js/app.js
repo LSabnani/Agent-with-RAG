@@ -118,12 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCopyJson = document.getElementById('btnCopyJson');
 
   // ---------------------------------------------------------------------------
-  // Tab Navigation
+  // Tab Navigation (Single Consolidated Handler)
   // ---------------------------------------------------------------------------
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetId = tab.getAttribute('data-target');
-      if (!targetId || targetId === currentActiveTab) return;
+      if (!targetId) return;
 
       navTabs.forEach(t => t.classList.remove('active'));
       pageViews.forEach(p => p.classList.remove('active'));
@@ -134,13 +134,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
       currentActiveTab = targetId;
 
-      // Lazy load view data
-      if (targetId === 'page-ingest') {
-        loadIngestionData();
-      } else if (targetId === 'page-telemetry') {
+      const label = tab.querySelector('.tab-label') ? tab.querySelector('.tab-label').textContent : targetId;
+      if (typeof logPageView === 'function') logPageView(label);
+
+      // Automatically reload view data when browsing into page
+      if (targetId === 'page-telemetry') {
         loadTelemetryData();
       } else if (targetId === 'page-audit') {
         loadAuditLogs();
+      } else if (targetId === 'page-ingest') {
+        if (typeof loadIngestionData === 'function') loadIngestionData();
+        if (typeof loadIngestionStats === 'function') loadIngestionStats();
+      } else if (targetId === 'page-containers') {
+        if (typeof loadContainers === 'function') loadContainers();
+      } else if (targetId === 'page-auth') {
+        if (typeof loadUsers === 'function') loadUsers();
+        if (typeof loadUserActivity === 'function') loadUserActivity();
+        if (typeof loadApiKeys === 'function') loadApiKeys();
       }
     });
   });
@@ -533,10 +543,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const sRes = await fetch('/api/vectordb/stats');
       if (sRes.ok) {
         const sData = await sRes.json();
-        statChunksCount.textContent = sData.total_chunks || 0;
-        statDocsCount.textContent = sData.total_documents || 0;
+        statChunksCount.textContent = (sData.total_chunks !== undefined ? sData.total_chunks : (sData.chunks_count || 0));
+        statDocsCount.textContent = (sData.total_documents !== undefined ? sData.total_documents : (sData.count_documents || sData.documents_count || 0));
         statDbSize.textContent = sData.db_size_mb || '0.0';
-        activeEmbedderModel = sData.active_model || 'bge-m3';
+        activeEmbedderModel = sData.active_model || 'bge-large:latest';
       }
 
       // 2. Ingested Docs
@@ -545,25 +555,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const dData = await dRes.json();
         const docs = dData.documents || [];
         if (docs.length === 0) {
-          ingestedDocsTbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No documents ingested.</td></tr>`;
+          ingestedDocsTbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No documents or skills ingested.</td></tr>`;
         } else {
-          ingestedDocsTbody.innerHTML = docs.map(d => `
+          ingestedDocsTbody.innerHTML = docs.map(d => {
+            const name = typeof d === 'string' ? d : (d.doc_name || d.name || 'Unknown');
+            const type = (typeof d === 'object' && d.type) ? d.type : (name.endsWith('-skill') ? 'Skill' : 'Document');
+            const chunks = (typeof d === 'object' && d.chunk_count !== undefined) ? d.chunk_count : 1;
+            const chars = (typeof d === 'object' && d.total_chars !== undefined) ? Number(d.total_chars) : 0;
+            const typeBadge = type === 'Skill'
+              ? '<span class="badge" style="background:#065f46;color:#6ee7b7;font-size:0.75rem;">Skill</span>'
+              : '<span class="badge" style="background:#1e3a8a;color:#93c5fd;font-size:0.75rem;">Document</span>';
+            return `
             <tr>
-              <td><strong>${escapeHtml(d.doc_name)}</strong></td>
-              <td>${d.chunk_count}</td>
-              <td>${d.total_chars.toLocaleString()}</td>
+              <td>${typeBadge}</td>
+              <td><strong>${escapeHtml(name)}</strong></td>
+              <td>${chunks}</td>
+              <td>${chars.toLocaleString()}</td>
               <td>
-                <button class="btn-table-delete" data-doc="${escapeHtml(d.doc_name)}">Delete</button>
+                <button class="btn-table-delete" data-doc="${escapeHtml(name)}" data-type="${escapeHtml(type.toLowerCase())}">Delete</button>
               </td>
             </tr>
-          `).join('');
+          `;
+          }).join('');
 
           // Bind delete buttons
           ingestedDocsTbody.querySelectorAll('.btn-table-delete').forEach(btn => {
             btn.addEventListener('click', async () => {
               const docName = btn.getAttribute('data-doc');
-              if (confirm(`Delete document '${docName}' from vector store?`)) {
-                await fetch(`/api/vectordb/document?doc_name=${encodeURIComponent(docName)}`, { method: 'DELETE' });
+              const docType = btn.getAttribute('data-type') || 'document';
+              if (confirm(`Delete ${docType} '${docName}' from vector store?`)) {
+                await fetch(`/api/vectordb/document?doc_name=${encodeURIComponent(docName)}&type=${encodeURIComponent(docType)}`, { method: 'DELETE' });
                 loadIngestionData();
               }
             });
@@ -609,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Sample URLs click
-  document.querySelectorAll('.btn-sample-url').forEach(btn => {
+  document.querySelectorAll('.btn-sample-url, .btn-sample_url').forEach(btn => {
     btn.addEventListener('click', () => {
       ingestSourceInput.value = btn.getAttribute('data-url');
       ingestSourceInput.focus();
@@ -763,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       // 1. Update Used Models Dropdown
-      const usedModels = data.used_models || [];
+      const usedModels = data.used_models || data.models_used || [];
       const currentSelected = telemetryModelFilter.value;
       telemetryModelFilter.innerHTML = '<option value="All Models">All Models</option>';
       usedModels.forEach(m => {
@@ -775,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       // 2. Summary stats
-      const s = data.summary || {};
+      const s = data.summary || data || {};
       telTotalPrompts.textContent = (s.total_prompts || 0).toLocaleString();
       telTotalResponses.textContent = (s.total_responses || 0).toLocaleString();
       telTotalErrors.textContent = (s.total_errors || 0).toLocaleString();
@@ -783,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
       telTotalOutTokens.textContent = (s.total_output_tokens || 0).toLocaleString();
 
       // 3. Performance stats
-      const p = data.performance || {};
+      const p = data.performance || data.metrics || {};
       valTtft.textContent = `${p.ttft_ms || 0} ms`;
       valItl.textContent = `${p.itl_ms || 0} ms`;
       valTps.textContent = `${p.tps || 0} tok/s`;
@@ -805,9 +826,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const inTokens = chartsData.input_tokens || [];
     const outTokens = chartsData.output_tokens || [];
 
-    // Destroy existing Chart instances
-    if (chartThroughputInstance) chartThroughputInstance.destroy();
-    if (chartTokensInstance) chartTokensInstance.destroy();
+    // Safely destroy existing Chart instances before creating new ones
+    try {
+      if (chartThroughputInstance) {
+        chartThroughputInstance.destroy();
+        chartThroughputInstance = null;
+      }
+    } catch (e) {
+      chartThroughputInstance = null;
+    }
+    try {
+      if (chartTokensInstance) {
+        chartTokensInstance.destroy();
+        chartTokensInstance = null;
+      }
+    } catch (e) {
+      chartTokensInstance = null;
+    }
 
     const chartOptions = {
       responsive: true,
@@ -939,16 +974,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      conversationsTbody.innerHTML = currentConversationsCache.map(c => `
+      conversationsTbody.innerHTML = currentConversationsCache.map(c => {
+        const ts = c.timestamp || c.last_seen || c.first_seen || '';
+        const evCount = c.event_count !== undefined ? c.event_count : (c.events_count || 0);
+        return `
         <tr class="conv-row ${c.conversation_id === selectedConversationId ? 'selected-row' : ''}" data-cid="${escapeHtml(c.conversation_id)}">
-          <td><span style="font-family:var(--font-mono);font-size:0.75rem;">${escapeHtml(c.timestamp)}</span></td>
+          <td><span style="font-family:var(--font-mono);font-size:0.75rem;">${escapeHtml(ts)}</span></td>
           <td><code style="color:#a5b4fc;">${escapeHtml(c.conversation_id)}</code></td>
-          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.user_query)}</td>
-          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.agent_response)}</td>
-          <td><span class="badge">${escapeHtml(c.agent_type)}</span></td>
-          <td><strong>${c.event_count}</strong></td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.user_query || '')}</td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.agent_response || '')}</td>
+          <td><span class="badge">${escapeHtml(c.agent_type || 'Custom Agent')}</span></td>
+          <td><strong>${evCount}</strong></td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       // Bind row clicks
       conversationsTbody.querySelectorAll('.conv-row').forEach(row => {
@@ -1461,29 +1500,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }).catch(() => {});
   }
 
-  // Hook into navigation tab clicks
-  navTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.getAttribute('data-target');
-      navTabs.forEach(t => t.classList.remove('active'));
-      pageViews.forEach(v => v.classList.remove('active'));
-
-      tab.classList.add('active');
-      const view = document.getElementById(target);
-      if (view) view.classList.add('active');
-
-      const label = tab.querySelector('.tab-label') ? tab.querySelector('.tab-label').textContent : target;
-      logPageView(label);
-
-      // Trigger page specific reloads
-      if (target === 'page-containers') loadContainers();
-      if (target === 'page-auth') { loadUsers(); loadUserActivity(); loadApiKeys(); }
-      if (target === 'page-telemetry') loadTelemetryData();
-      if (target === 'page-audit') loadAuditLogs();
-      if (target === 'page-ingest') loadIngestionStats();
-    });
-  });
-
   // ---------------------------------------------------------------------------
   // PAGE 5: CONTAINER MANAGER
   // ---------------------------------------------------------------------------
@@ -1840,16 +1856,40 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCopyGeneratedKey = document.getElementById('btnCopyGeneratedKey');
   const btnCloseShowKeyModal = document.getElementById('btnCloseShowKeyModal');
 
+  // Edit API Key Modal elements
   const editKeyModal = document.getElementById('editKeyModal');
   const btnCloseEditKeyModalX = document.getElementById('btnCloseEditKeyModalX');
   const btnCancelEditKey = document.getElementById('btnCancelEditKey');
   const btnDeleteKey = document.getElementById('btnDeleteKey');
   const btnUpdateKey = document.getElementById('btnUpdateKey');
   const editKeyNameDisplay = document.getElementById('editKeyNameDisplay');
+  const editKeyNameInput = document.getElementById('editKeyNameInput');
+  const editKeyContainerSelect = document.getElementById('editKeyContainerSelect');
+  const editKeyLevelSelect = document.getElementById('editKeyLevelSelect');
+  const btnEditAddContainerPerm = document.getElementById('btnEditAddContainerPerm');
   const editKeyRowsContainer = document.getElementById('editKeyRowsContainer');
+  const editKeyExpiry = document.getElementById('editKeyExpiry');
   const editKeyId = document.getElementById('editKeyId');
 
+  // Batch delete & confirmation modals
+  const selectAllApiKeys = document.getElementById('selectAllApiKeys');
+  const btnDeleteSelectedKeys = document.getElementById('btnDeleteSelectedKeys');
+  const deleteSelectedKeysModal = document.getElementById('deleteSelectedKeysModal');
+  const deleteSelectedKeysList = document.getElementById('deleteSelectedKeysList');
+  const btnCloseDeleteSelectedKeysModalX = document.getElementById('btnCloseDeleteSelectedKeysModalX');
+  const btnCancelDeleteSelectedKeys = document.getElementById('btnCancelDeleteSelectedKeys');
+  const btnConfirmDeleteSelectedKeys = document.getElementById('btnConfirmDeleteSelectedKeys');
+
+  const confirmKeyActionModal = document.getElementById('confirmKeyActionModal');
+  const confirmKeyActionTitle = document.getElementById('confirmKeyActionTitle');
+  const confirmKeyActionMessage = document.getElementById('confirmKeyActionMessage');
+  const btnCloseConfirmKeyActionModalX = document.getElementById('btnCloseConfirmKeyActionModalX');
+  const btnCancelConfirmKeyAction = document.getElementById('btnCancelConfirmKeyAction');
+  const btnExecuteConfirmKeyAction = document.getElementById('btnExecuteConfirmKeyAction');
+
   let configuredPerms = [];
+  let selectedKeyIds = new Set();
+  let currentLoadedKeys = [];
 
   btnOpenAddKeyModal.onclick = () => {
     newKeyName.value = '';
@@ -1875,13 +1915,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderConfiguredPerms() {
     newKeyPermsList.innerHTML = '';
     if (configuredPerms.length === 0) {
-      newKeyPermsList.innerHTML = '<span class="text-muted" style="font-size:0.82rem;">No permissions added.</span>';
+      newKeyPermsList.innerHTML = '<span class="text-muted" style="font-size:0.82rem;">No permissions added yet. Click \'Add\' above.</span>';
       return;
     }
     configuredPerms.forEach((p, idx) => {
       const chip = document.createElement('div');
-      chip.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#182234; padding:3px 8px; margin-bottom:4px; border-radius:4px; font-size:0.82rem;';
-      chip.innerHTML = `<span><strong>${p.container}</strong>: ${p.level}</span> <button class="btn-close" style="font-size:0.8rem;" onclick="removePerm(${idx})">&times;</button>`;
+      chip.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#182234; padding:4px 10px; margin-bottom:4px; border-radius:4px; font-size:0.82rem;';
+      chip.innerHTML = `<span><strong>${escapeHtml(p.container)}</strong>: <span class="badge" style="background:#1e3a8a;color:#93c5fd;">${escapeHtml(p.level)}</span></span> <button type="button" class="btn-close" style="font-size:0.85rem;" onclick="removePerm(${idx})">&times;</button>`;
       newKeyPermsList.appendChild(chip);
     });
   }
@@ -1934,30 +1974,149 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const resp = await fetch('/api/keys');
       const data = await resp.json();
+      currentLoadedKeys = data.keys || [];
       apiKeysTbody.innerHTML = '';
-      (data.keys || []).forEach(k => {
+
+      if (currentLoadedKeys.length === 0) {
+        apiKeysTbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No API keys found.</td></tr>';
+        if (selectAllApiKeys) selectAllApiKeys.checked = false;
+        if (btnDeleteSelectedKeys) btnDeleteSelectedKeys.disabled = true;
+        return;
+      }
+
+      currentLoadedKeys.forEach(k => {
+        const isChecked = selectedKeyIds.has(k.id);
         const tr = document.createElement('tr');
+        if (isChecked) tr.classList.add('selected-row');
         tr.innerHTML = `
+          <td style="text-align:center;">
+            <input type="checkbox" class="api-key-select-chk" data-id="${k.id}" ${isChecked ? 'checked' : ''}>
+          </td>
           <td><strong>${escapeHtml(k.key_name)}</strong></td>
           <td><code>${escapeHtml(k.key_prefix)}</code></td>
           <td>${escapeHtml(k.creator_email)}</td>
-          <td>${k.created_at ? new Date(k.created_at).toLocaleDateString() : '-'}</td>
-          <td>${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : '-'}</td>
-          <td>${(k.containers || []).join(', ')}</td>
-          <td>${(k.access_levels || []).join(', ')}</td>
-          <td><span class="badge ${k.status === 'active' ? 'badge-user' : 'badge-admin'}">${k.status}</span></td>
+          <td>${k.created_at ? new Date(k.created_at).toLocaleString() : '-'}</td>
+          <td>${k.expires_at ? new Date(k.expires_at).toLocaleString() : '-'}</td>
+          <td>${(k.containers || []).join(', ') || '-'}</td>
+          <td>${(k.access_levels || []).join(', ') || '-'}</td>
+          <td><span class="badge ${k.status === 'active' ? 'badge-user' : (k.status === 'delete' ? 'badge-admin' : 'badge-inactive')}">${escapeHtml(k.status)}</span></td>
           <td>
             <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick='openEditKeyModal(${JSON.stringify(k)})'>Edit</button>
           </td>
         `;
         apiKeysTbody.appendChild(tr);
       });
-    } catch (e) {}
+
+      // Bind row checkboxes
+      apiKeysTbody.querySelectorAll('.api-key-select-chk').forEach(chk => {
+        chk.addEventListener('change', () => {
+          const id = parseInt(chk.getAttribute('data-id'));
+          const tr = chk.closest('tr');
+          if (chk.checked) {
+            selectedKeyIds.add(id);
+            if (tr) tr.classList.add('selected-row');
+          } else {
+            selectedKeyIds.delete(id);
+            if (tr) tr.classList.remove('selected-row');
+          }
+          updateBulkDeleteBtnState();
+        });
+      });
+
+      updateBulkDeleteBtnState();
+    } catch (e) {
+      console.error('Failed to load API keys:', e);
+    }
   }
 
+  function updateBulkDeleteBtnState() {
+    if (btnDeleteSelectedKeys) {
+      btnDeleteSelectedKeys.disabled = (selectedKeyIds.size === 0);
+    }
+    if (selectAllApiKeys) {
+      selectAllApiKeys.checked = (currentLoadedKeys.length > 0 && selectedKeyIds.size === currentLoadedKeys.length);
+    }
+  }
+
+  // Select All Checkbox
+  if (selectAllApiKeys) {
+    selectAllApiKeys.addEventListener('change', () => {
+      const isChecked = selectAllApiKeys.checked;
+      selectedKeyIds.clear();
+      if (isChecked) {
+        currentLoadedKeys.forEach(k => selectedKeyIds.add(k.id));
+      }
+      apiKeysTbody.querySelectorAll('.api-key-select-chk').forEach(chk => {
+        chk.checked = isChecked;
+        const tr = chk.closest('tr');
+        if (tr) {
+          if (isChecked) tr.classList.add('selected-row');
+          else tr.classList.remove('selected-row');
+        }
+      });
+      if (btnDeleteSelectedKeys) {
+        btnDeleteSelectedKeys.disabled = (selectedKeyIds.size === 0);
+      }
+    });
+  }
+
+  // Delete Selected API Keys Button
+  if (btnDeleteSelectedKeys) {
+    btnDeleteSelectedKeys.onclick = () => {
+      if (selectedKeyIds.size === 0) return;
+      const selected = currentLoadedKeys.filter(k => selectedKeyIds.has(k.id));
+      if (deleteSelectedKeysList) {
+        deleteSelectedKeysList.innerHTML = `
+          <ul style="list-style:none; padding:0; margin:0;">
+            ${selected.map(s => `
+              <li style="padding:6px 0; border-bottom:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center;">
+                <span><strong>${escapeHtml(s.key_name)}</strong></span>
+                <code>${escapeHtml(s.key_prefix)}</code>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+      }
+      if (deleteSelectedKeysModal) deleteSelectedKeysModal.classList.remove('hidden');
+    };
+  }
+
+  if (btnCloseDeleteSelectedKeysModalX) {
+    btnCloseDeleteSelectedKeysModalX.onclick = () => deleteSelectedKeysModal.classList.add('hidden');
+  }
+  if (btnCancelDeleteSelectedKeys) {
+    btnCancelDeleteSelectedKeys.onclick = () => deleteSelectedKeysModal.classList.add('hidden');
+  }
+
+  if (btnConfirmDeleteSelectedKeys) {
+    btnConfirmDeleteSelectedKeys.onclick = async () => {
+      const ids = Array.from(selectedKeyIds);
+      if (ids.length === 0) return;
+      try {
+        await fetch('/api/keys/bulk_delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key_ids: ids })
+        });
+      } catch (e) {
+        for (const kid of ids) {
+          await fetch(`/api/keys/${kid}`, { method: 'DELETE' }).catch(() => {});
+        }
+      }
+      selectedKeyIds.clear();
+      if (deleteSelectedKeysModal) deleteSelectedKeysModal.classList.add('hidden');
+      loadApiKeys();
+    };
+  }
+
+  // Edit API Key Modal Logic
   window.openEditKeyModal = (k) => {
     editKeyId.value = k.id;
-    editKeyNameDisplay.textContent = k.key_name;
+    if (editKeyNameDisplay) editKeyNameDisplay.textContent = k.key_name;
+    if (editKeyNameInput) editKeyNameInput.value = k.key_name;
+    if (editKeyExpiry) {
+      editKeyExpiry.value = k.expires_at ? new Date(k.expires_at).toISOString().slice(0, 16) : '';
+    }
     editKeyRowsContainer.innerHTML = '';
 
     const containers = k.containers || [];
@@ -1965,60 +2124,126 @@ document.addEventListener('DOMContentLoaded', () => {
 
     containers.forEach((c, idx) => {
       const curLevel = levels[idx] || 'Read';
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#182234; padding:6px 12px; border-radius:4px;';
-      row.innerHTML = `
-        <span><strong>${c}</strong></span>
-        <select class="input-text edit-key-level-select" data-container="${c}" style="padding:2px 8px; font-size:0.8rem;">
-          <option value="Read" ${curLevel === 'Read' ? 'selected' : ''}>Read</option>
-          <option value="Write" ${curLevel === 'Write' ? 'selected' : ''}>Write</option>
-          <option value="Admin" ${curLevel === 'Admin' ? 'selected' : ''}>Admin</option>
-          <option value="Delete">Delete</option>
-        </select>
-      `;
-      editKeyRowsContainer.appendChild(row);
+      addEditKeyRow(c, curLevel);
     });
+
+    if (containers.length === 0) {
+      editKeyRowsContainer.innerHTML = '<span class="text-muted" style="font-size:0.82rem;">No permissions configured. Use selector above to add.</span>';
+    }
 
     editKeyModal.classList.remove('hidden');
   };
 
-  btnCloseEditKeyModalX.onclick = () => editKeyModal.classList.add('hidden');
-  btnCancelEditKey.onclick = () => editKeyModal.classList.add('hidden');
+  function addEditKeyRow(container, level) {
+    const placeholder = editKeyRowsContainer.querySelector('.text-muted');
+    if (placeholder) placeholder.remove();
 
-  btnDeleteKey.onclick = async () => {
-    if (!confirm('Are you sure you want to delete this API key?')) return;
-    const kid = editKeyId.value;
-    await fetch(`/api/keys/${kid}`, { method: 'DELETE' });
-    editKeyModal.classList.add('hidden');
-    loadApiKeys();
-  };
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#182234; padding:6px 12px; border-radius:4px; margin-bottom:4px;';
+    row.innerHTML = `
+      <span><strong>${escapeHtml(container)}</strong></span>
+      <select class="input-text edit-key-level-select" data-container="${escapeHtml(container)}" style="padding:4px 8px; font-size:0.82rem;">
+        <option value="Read" ${level === 'Read' ? 'selected' : ''}>Read</option>
+        <option value="Write" ${level === 'Write' ? 'selected' : ''}>Write</option>
+        <option value="Admin" ${level === 'Admin' ? 'selected' : ''}>Admin</option>
+        <option value="Delete" style="color:#ef4444;">Delete</option>
+      </select>
+    `;
+    editKeyRowsContainer.appendChild(row);
+  }
 
-  btnUpdateKey.onclick = async () => {
-    if (!confirm('Confirm updating this API key permissions?')) return;
-    const kid = editKeyId.value;
-    const newContainers = [];
-    const newLevels = [];
+  if (btnEditAddContainerPerm) {
+    btnEditAddContainerPerm.onclick = () => {
+      const c = editKeyContainerSelect.value;
+      const l = editKeyLevelSelect.value;
+      addEditKeyRow(c, l);
+    };
+  }
 
-    document.querySelectorAll('.edit-key-level-select').forEach(sel => {
-      const c = sel.getAttribute('data-container');
-      const l = sel.value;
-      if (l !== 'Delete') {
-        newContainers.push(c);
-        newLevels.push(l);
-      }
-    });
+  if (btnCloseEditKeyModalX) btnCloseEditKeyModalX.onclick = () => editKeyModal.classList.add('hidden');
+  if (btnCancelEditKey) btnCancelEditKey.onclick = () => editKeyModal.classList.add('hidden');
 
-    await fetch(`/api/keys/${kid}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        containers: newContainers,
-        access_levels: newLevels
-      })
-    });
-    editKeyModal.classList.add('hidden');
-    loadApiKeys();
-  };
+  // Confirmation modal helpers
+  function showConfirmKeyAction(title, message, isDanger, onConfirm) {
+    if (confirmKeyActionTitle) confirmKeyActionTitle.innerHTML = `<span class="modal-icon ${isDanger ? 'text-danger' : 'text-primary'}">${isDanger ? '🗑️' : '✏️'}</span> ${escapeHtml(title)}`;
+    if (confirmKeyActionMessage) confirmKeyActionMessage.textContent = message;
+    if (btnExecuteConfirmKeyAction) {
+      btnExecuteConfirmKeyAction.className = isDanger ? 'btn-danger' : 'btn-primary';
+      btnExecuteConfirmKeyAction.textContent = isDanger ? 'Delete' : 'Update';
+      btnExecuteConfirmKeyAction.onclick = async () => {
+        confirmKeyActionModal.classList.add('hidden');
+        await onConfirm();
+      };
+    }
+    if (confirmKeyActionModal) confirmKeyActionModal.classList.remove('hidden');
+  }
+
+  if (btnCloseConfirmKeyActionModalX) {
+    btnCloseConfirmKeyActionModalX.onclick = () => confirmKeyActionModal.classList.add('hidden');
+  }
+  if (btnCancelConfirmKeyAction) {
+    btnCancelConfirmKeyAction.onclick = () => confirmKeyActionModal.classList.add('hidden');
+  }
+
+  // Delete button on Edit Key Modal
+  if (btnDeleteKey) {
+    btnDeleteKey.onclick = () => {
+      const kid = editKeyId.value;
+      const keyName = editKeyNameInput ? editKeyNameInput.value.trim() : (editKeyNameDisplay ? editKeyNameDisplay.textContent : 'API Key');
+      showConfirmKeyAction(
+        'Confirm Delete API Key',
+        `Are you sure you want to delete the API key "${keyName}"? This action cannot be undone.`,
+        true,
+        async () => {
+          await fetch(`/api/keys/${kid}`, { method: 'DELETE' });
+          editKeyModal.classList.add('hidden');
+          selectedKeyIds.delete(parseInt(kid));
+          loadApiKeys();
+        }
+      );
+    };
+  }
+
+  // Update button on Edit Key Modal
+  if (btnUpdateKey) {
+    btnUpdateKey.onclick = () => {
+      const kid = editKeyId.value;
+      const keyName = editKeyNameInput ? editKeyNameInput.value.trim() : (editKeyNameDisplay ? editKeyNameDisplay.textContent : 'API Key');
+      showConfirmKeyAction(
+        'Confirm Update API Key',
+        `Are you sure you want to update the settings and permissions for API key "${keyName}"?`,
+        false,
+        async () => {
+          const newContainers = [];
+          const newLevels = [];
+
+          editKeyRowsContainer.querySelectorAll('.edit-key-level-select').forEach(sel => {
+            const c = sel.getAttribute('data-container');
+            const l = sel.value;
+            if (l !== 'Delete') {
+              newContainers.push(c);
+              newLevels.push(l);
+            }
+          });
+
+          const expiry = editKeyExpiry && editKeyExpiry.value ? new Date(editKeyExpiry.value).toISOString() : null;
+
+          await fetch(`/api/keys/${kid}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              key_name: keyName,
+              containers: newContainers,
+              access_levels: newLevels,
+              expires_at: expiry
+            })
+          });
+          editKeyModal.classList.add('hidden');
+          loadApiKeys();
+        }
+      );
+    };
+  }
 
   // Enhanced Context Evidence loader hook in chat flow
   async function loadContextEvidence(convId) {
@@ -2066,4 +2291,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial Data Load
   loadModelsAndSkills();
   loadContainers();
+
+  // Auto-refresh active view every 15 seconds so data updates in real-time
+  setInterval(() => {
+    if (currentActiveTab === 'page-telemetry') {
+      loadTelemetryData();
+    } else if (currentActiveTab === 'page-audit') {
+      loadAuditLogs();
+    }
+  }, 15000);
 });

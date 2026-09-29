@@ -206,14 +206,21 @@ Display the logs associated with the conversation selected in the table above so
 
 ### Fifth page: "Container Mgr"
 - Display this page only if the user has admin access
+- Only users with admin access should be able to shut down or restart the containers
 - Display a "Shutdown All" button at the top right corner.
-  - Open a popup window asking the user to type "Shutdown System". The "Confirm Shutdown" button at the bottom right of the popup should be disabled until the exact phrase is typed.  
+  - When the user clicks on this button, open a popup window asking the user to type "Shutdown System".
+  - Add a text input box for the user to type "Shutdown System".
+  - Add the "Confirm Shutdown" button at the bottom right of the popup.
+    - This button should be disabled until the exact phrase "Shutdown System" is typed in the text input box.
+    - When the user clicks on "Confirm Shutdown", shut down all the containers.
   - Add the "Cancel" button at the bottom of the popup window. When the user clicks the button, close the popup window.
-  - When the user clicks on "Confirm Shutdown", shut down all the containers and close the application.
-- Next to the "Shutdown All" button, there should be a "Restart All" button.
-  - Open a popup window asking the user to type "Restart System". The "Confirm Restart" button at the bottom right of the popup should be disabled until the exact phrase is typed.  
+- Next to the "Shutdown All" button, add a "Restart All" button.
+  - When the user clicks on this button, open a popup window asking the user to type "Restart System".
+  - Add a text input box for the user to type "Restart System".
+  - Add the "Confirm Restart" button at the bottom right of the popup.
+    - This button should be disabled until the exact phrase "Restart System" is typed in the text input box.
+    - When the user clicks on "Confirm Restart", restart all the containers.
   - Add the "Cancel" button at the bottom of the popup window. When the user clicks the button, close the popup window.
-  - When the user clicks on "Confirm Restart", restart all the containers and close the application.
 - Display the containers in the system in a drawing.
   - The user should be at the top of the drawing connecting to the web ui container.
   - The containers should be displayed in a way that the user can see the relationship between the containers.
@@ -222,8 +229,9 @@ Display the logs associated with the conversation selected in the table above so
     - Draw a line to show the Documents & Skills container connects to the Embedding container.
     - Draw a dash line to show all the containers connected to the Authentication and Logging containers.
   - The container should have light green when it is active and light red when it is stopped or failed to start.
-  - When the user right click on any container, open a popup window with the following information:
+  - When the user right clicks on any container, open a popup window with the following information:
     - Container name and Status
+    - Add the highlighted text "API Keys can be set when the container is inactive."
     - List of containers that the container accesses.
       - If the container is an active container, the list is read only.
       - If the container is inactive, the user can add the API key for each container in the list.
@@ -268,6 +276,11 @@ The Documents and Skills container accesses:
       - There should be a scroll bar on the right side to allow the user to scroll through all the items
 
   - API Keys tab displays:
+    - Add a checkbox "Select All" at the top of the table. When clicked, select all the rows in the table.
+    - Add a button "Delete Selected API Keys" to allow the user to delete all the selected API keys. When clicked, bring a popup asking for confirmation from the user to delete the API keys.
+      - In the popup, display the list of all the selected API keys.
+      - Add a "Delete" button at the bottom right corner to allow the user to delete the API keys.
+      - Add a "Cancel" button at the bottom left corner to allow the user to cancel the operation.
     - Add a button to generate a new API key
       - When clicked, a popup window open and display:
         - A text box to enter the Key name for the API key
@@ -284,6 +297,7 @@ The Documents and Skills container accesses:
 
     - A table listing the API keys:
       - The table should contain the following columns:
+        - A checkbox to select the API key. When clicked, select the row.
         - Key Name
         - API Key prefix
         - The user who created the key
@@ -541,18 +555,54 @@ The Custom Agent should operate as follow:
       - Create 30 random employee records with name, city, country, and job title in a csv file. Store the data in the data/employee_database.csv file.
     - The second tool script "stock_analysis" gets the list of stocks with the highest percentage increase or lowest percentage decrease based on criteria from the arguments in the function call.
 
-### Logging
-- Create a logging service container in the logging/ folder to store logs from all the entities that interact with the system.
-  - The logs should be stored in the logs/ folder that maps to the logging/logs/ on the host. Use volume to persist the logs on the host.
-  - Keep the statistics of the Total number of logs, number of logs from each entity, and the size of the log files and save it into the logs/ folder
+### Logging & Telemetry System
+- Create a central logging service container in the `logging/` directory to capture, persist, and aggregate logs from all entities across the microservice mesh.
+  - Logs are persisted in `logging/logs/log.json` on the host via volume mount `./logging/logs:/app/logs`.
+  - Maintain operational statistics including total log count, entity distribution, file size, token throughput, and latency.
 
-  - Provide the following APIs:
-    - Accepts logs from all the entities in the system and stores them in the logs/ folder
-    - Retrieve the logs based on the criteria from the arguments in the function call
-      - Entity name
-      - Conversation ID
-      - Date range
-      - Fields to return or statistics
+#### Inter-Container Full Payload Logging Requirements
+All container-to-container communications must record the complete, untruncated payload in the log entries. The following events must be logged with their exact request and response objects:
+1. **Web UI ➔ Agents Service**:
+   - `chat_request`: User prompt, model selection, temperature, max_turns, and agent settings.
+   - `chat_response`: Synthesized final answer, full execution steps list, duration in milliseconds (`duration_ms`), and model.
+2. **Agents Service ➔ Vector Store (`doc_rag`)**:
+   - `skill_vector_query` / `vector_db_query_request`: Query string, threshold, limit (`k`), document type (`skill` or `document`).
+   - `skill_vector_response` / `vector_db_query_response`: Matched skills or document chunks including complete chunk text, similarity score, and metadata.
+3. **Vector Store (`doc_rag`) ➔ Embedding Service (`ollama`)**:
+   - `embedding_query`: Full text to embed, embedding model name (`model_used`), vector dimension, and embedding duration (`duration_ms`).
+4. **Agents Service ➔ LLM Model**:
+   - `llm_invocation`: Full prompt text, system instructions, temperature, max tokens, and model identifier.
+   - `llm_response`: Full generated text response, prompt token count (`input_tokens`), completion token count (`output_tokens`), duration (`duration_ms`), and model.
+5. **Agents Service ➔ Tools Service**:
+   - `tool_invocation`: Target tool name, function arguments.
+   - `tool_response`: Structured tool output, execution status, and duration (`duration_ms`).
+
+#### Standard Log Entry Schema
+```json
+{
+  "id": "log_1790638137273_061f",
+  "timestamp": "2026-09-28T23:28:57.270953+00:00",
+  "type": "chat_response",
+  "invoker": "agents",
+  "recipient": "Web UI",
+  "conversation_id": "conv_1790638137",
+  "short_description": "Web UI received response from agent (8408ms)",
+  "payload": {
+    "request": { ... },
+    "response": { ... }
+  },
+  "status": "success",
+  "duration_ms": 8408,
+  "input_tokens": 863,
+  "output_tokens": 7,
+  "model": "gemini-3.1-flash-lite",
+  "is_error": false
+}
+```
+
+#### Automatic Metadata Extraction & API Key Redaction
+- **Automatic Metadata Extraction**: If root-level `duration_ms`, `model`, `input_tokens`, or `output_tokens` are omitted by the caller or set to `0`/`""`, the logging service automatically extracts them from `payload.response.duration_ms`, `payload.request.model_used`, `payload.token_usage`, etc.
+- **Recursive Redaction**: All API keys (e.g. `AIza...`, `sk-...`, `key-...`, or dictionary keys matching `api_key`, `secret`, `password`) are automatically masked as `****` prior to disk persistence.
 
 ## 🔌 Microservices API Reference
 
@@ -576,16 +626,29 @@ The Custom Agent should operate as follow:
 - `POST /api/chat`
   - Proxies user chat prompt and configuration parameters to Agents container.
   - Request: `{"message": "<text>", "agent_type": "...", "model": "...", "max_turns": 3, "temperature": 0.7, ...}`
-- `GET /api/rag/stats` & `GET /api/rag/documents`
-  - Proxies vector store statistics and document lists from doc_RAG.
-- `POST /api/rag/upload`
-  - Accepts multipart/form-data document upload (.txt, .md, .pdf) or URL import.
-- `DELETE /api/rag/documents/<name>`
-  - Proxies document deletion to doc_RAG.
+- `GET /api/vectordb/stats` & `GET /api/rag/stats`
+  - Proxies vector store statistics (total chunks, total documents, database size in MB, active embedding model) from doc_RAG.
+- `GET /api/vectordb/documents` & `GET /api/rag/documents`
+  - Proxies document list from doc_RAG with per-document metadata: document name, chunk count, and total character count.
+- `GET /api/vectordb/models` & `GET /api/vectordb/ollama_models`
+  - Returns embedding models catalog (name, dimensions, context window, size, description, status, is_active, is_installed) based on Ollama tags and active embedder.
+- `POST /api/vectordb/ingest` & `POST /api/vectordb/populate`
+  - Ingests content from a URL or local file/directory path into doc_RAG with configurable chunk size and overlap parameters.
+- `DELETE /api/vectordb/document` & `DELETE /api/vectordb/delete/<name>` & `DELETE /api/rag/documents/<name>`
+  - Deletes all chunks associated with a specific document or all documents from the vector database.
+- `POST /api/vectordb/change-model` & `POST /api/vectordb/change_model`
+  - Changes the active embedding model, resets document vector database, and triggers skill re-indexing.
+- `POST /api/keys/bulk_delete`
+  - Proxies bulk API key deletion to the Auth Service.
 - `GET /api/telemetry`
-  - Proxies token velocity and model usage metrics from Logging service.
-- `GET /api/audit_logs`
-  - Proxies conversation event traces and raw payloads from Logging service.
+  - Proxies operational telemetry, token throughput, velocity timeline charts, and inference performance metrics from Logging service.
+  - Query parameters: `model` ("All Models" or specific model), `interval` ("1 min", "15 min", "1 hr", "1 day"), `time_range` ("Last hr", "1 day", "Week", "Month", "Custom"), `start_date`, `end_date`.
+- `GET /api/logs` & `GET /api/audit/conversations`
+  - Proxies conversation audit list and aggregate statistics pill metrics (`total_user_prompts`, `total_model_calls`, `total_ollama_embeds`, `avg_latency_ms`).
+- `GET /api/logs/<conv_id>` & `GET /api/audit/events/<conv_id>`
+  - Proxies chronological event traces and complete request/response payloads for a conversation ID.
+- `POST /api/logs/clear` & `POST /api/audit/clear`
+  - Clears all recorded logs from the logging database.
 - `GET /api/containers/status`
   - Queries local Docker socket (`/var/run/docker.sock`) to report status, CPU%, and memory usage of all 7 containers.
 - `POST /api/containers/<name>/action`
@@ -632,6 +695,8 @@ The Custom Agent should operate as follow:
   - Updates key configuration (name, container scopes, access levels, or status).
 - `DELETE /api/keys/<id>`
   - Revokes and removes an API key.
+- `POST /api/keys/bulk_delete`
+  - Bulk deletes multiple API keys by an array of key IDs (`{"key_ids": [1, 2, ...]}`).
 - `POST /api/auth/validate_key`
   - Authenticates and authorizes an API key for inter-container communication. Emits structured access log to Logging container.
   - Request: `{"api_key": "<key>", "container": "tools|doc_rag|agents", "access_level": "read|write|admin", "invoker": "<service>"}`
@@ -765,19 +830,22 @@ The Custom Agent should operate as follow:
 
 ### 6. Central Logging & Telemetry Service (`logging`, Port 8006)
 - `GET /health`
-  - Health check endpoint returning service status and port.
+  - Health check endpoint returning service status, service name, and port 8006.
 - `POST /api/logs`
-  - Ingests structured audit log events from all system components.
-  - Request:
+  - Ingests structured audit log events with automatic metadata fallback and API key redaction.
+  - Request body:
     ```json
     {
       "invoker": "<source>",
       "recipient": "<target>",
       "conversation_id": "<conv_id>",
-      "type": "user_session_login|page_view|api_key_access|vector_db_query_request|...",
+      "type": "chat_request|chat_response|llm_invocation|llm_response|embedding_query|...",
       "short_description": "<summary>",
-      "payload": {...},
-      "status": "success" | "failure",
+      "payload": {
+        "request": { ... },
+        "response": { ... }
+      },
+      "status": "success|error",
       "duration_ms": 120,
       "input_tokens": 512,
       "output_tokens": 128,
@@ -785,16 +853,77 @@ The Custom Agent should operate as follow:
     }
     ```
   - Response (201): `{"status": "success", "log_id": "log_..."}`
+- `GET /api/conversations` & `GET /api/logs`
+  - Returns conversations list with aggregate summary pill statistics:
+    ```json
+    {
+      "conversations": [
+        {
+          "conversation_id": "conv_1790638137",
+          "timestamp": "2026-09-28T23:28:57.270953+00:00",
+          "first_seen": "2026-09-28T23:28:45.120300+00:00",
+          "last_seen": "2026-09-28T23:28:57.270953+00:00",
+          "user_query": "What is the capital of France?",
+          "agent_response": "The capital of France is Paris.",
+          "agent_type": "Custom Agent",
+          "event_count": 11,
+          "events_count": 11,
+          "model": "gemini-3.1-flash-lite"
+        }
+      ],
+      "statistics": {
+        "total_user_prompts": 18,
+        "total_model_calls": 20,
+        "total_ollama_embeds": 108,
+        "avg_latency_ms": 1572.4
+      }
+    }
+    ```
+- `GET /api/conversations/<conversation_id>/events` & `GET /api/logs/<conversation_id>`
+  - Returns the chronological sequence of all communication events recorded for a conversation, enriched with `local_time`, `event_type`, `target`, `elapsed_ms`, and raw `payload`.
+- `GET /api/logs/telemetry`
+  - Computes operational telemetry and token velocity timeline metrics.
+  - Query parameters:
+    - `model`: Model filter string ("All Models" or specific model name).
+    - `interval` / `raw_interval`: Bucket size ("1 min" / "1m", "15 min" / "15m", "1 hr" / "1h", "1 day" / "1d").
+    - `range` / `time_range`: Time window ("Last hr" / "1h", "1 day" / "1d", "Week" / "7d", "Month" / "30d", "Custom").
+    - `start_date`, `end_date`: ISO timestamps for custom range.
+  - Response:
+    ```json
+    {
+      "used_models": ["bge-large:latest", "gemini-3.1-flash-lite", ...],
+      "models_used": ["bge-large:latest", "gemini-3.1-flash-lite", ...],
+      "summary": {
+        "total_prompts": 18,
+        "total_responses": 21,
+        "total_errors": 25,
+        "total_input_tokens": 4022,
+        "total_output_tokens": 262
+      },
+      "performance": {
+        "avg_latency_ms": 2510.4,
+        "ttft_ms": 878.6,
+        "itl_ms": 930.7,
+        "tps": 0.86,
+        "tpot_ms": 1163.38
+      },
+      "charts": {
+        "labels": ["04:30", "04:45", ...],
+        "prompts": [0, 1, ...],
+        "responses": [0, 1, ...],
+        "errors": [0, 0, ...],
+        "input_tokens": [0, 863, ...],
+        "output_tokens": [0, 7, ...]
+      },
+      "timeline": [...]
+    }
+    ```
 - `GET /api/logs/query` (or `POST /api/logs/query`)
-  - Queries, filters, and paginates system log entries.
-  - Query parameters: `conversation_id`, `entity`, `type`, `start_date`, `end_date`, `model`, `search`, `limit`, `offset`.
-  - Response: `{"count": <int>, "logs": [...]}`
-- `GET /api/logs/conversations`
-  - Returns aggregated list of user conversations (Timestamp, Conversation ID, User Query, Agent Response, Event Count).
-- `GET /api/logs/statistics`
-  - Aggregates operational telemetry metrics (Total Prompts, Responses, Errors, Input/Output Tokens, Avg Latency, and time-interval aggregations).
-- `DELETE /api/logs` (or `POST /api/logs/clear`)
-  - Wipes all persisted logs from `logs/log.json`.
+  - Filter logs by criteria: `entity`, `conversation_id`, `type`, `model`, `start_date`, `end_date`, `limit`.
+- `GET /api/logs/stats`
+  - Returns total log counts, file size in bytes and megabytes, and log count breakdown per entity.
+- `POST /api/logs/clear`
+  - Wipes all logs from `logging/logs/log.json` and resets statistics.
 
 ### 7. Ollama Embedding Service (`ollama`, Port 11434)
 - `POST /api/embeddings`

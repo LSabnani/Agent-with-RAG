@@ -257,7 +257,7 @@
               <label class="field-label">Sample Web Documents:</label>
               <div class="sample-url-buttons">
                 <button class="btn-sample-url" data-url="sample_docs/agent_and_rag.md">Agent & RAG Doc</button>
-                <button class="btn-sample_url" data-url="sample_docs/company_marketing_strategy.md">Marketing Strategy</button>
+                <button class="btn-sample-url" data-url="sample_docs/company_marketing_strategy.md">Marketing Strategy</button>
                 <button class="btn-sample-url" data-url="sample_docs/financial_report.md">Financial Report</button>
                 <button class="btn-sample-url" data-url="https://en.wikipedia.org/wiki/Retrieval-augmented_generation">Wikipedia RAG</button>
                 <button class="btn-sample-url" data-url="sample_docs/">All sample_docs/</button>
@@ -321,14 +321,15 @@
               <table class="data-table" id="ingestedDocsTable">
                 <thead>
                   <tr>
-                    <th>Document Name</th>
+                    <th>Type</th>
+                    <th>Document / Skill Name</th>
                     <th>Chunks</th>
                     <th>Characters</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="ingestedDocsTbody">
-                  <tr><td colspan="4" class="text-center text-muted">No documents ingested.</td></tr>
+                  <tr><td colspan="5" class="text-center text-muted">No documents or skills ingested.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -841,21 +842,29 @@
         <!-- Sub-tab 2: API Keys -->
         <div class="subtab-content" id="subtab-apikeys">
           <div class="glass-card full-width-card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
               <div class="card-title">
                 <span class="card-icon">🗝️</span> Configured Container API Keys
               </div>
-              <button id="btnOpenAddKeyModal" class="btn-primary" style="padding: 0.4rem 1rem;">
-                <span class="icon">➕</span> Generate New API Key
-              </button>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="btnDeleteSelectedKeys" class="btn-danger" style="padding: 0.4rem 1rem; font-size: 0.85rem;" disabled>
+                  <span class="icon">🗑️</span> Delete Selected API Keys
+                </button>
+                <button id="btnOpenAddKeyModal" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">
+                  <span class="icon">➕</span> Generate New API Key
+                </button>
+              </div>
             </div>
             <div class="card-body">
-              <div class="table-scroll-container" style="max-height: 300px; overflow-y: auto;">
+              <div class="table-scroll-container" style="max-height: 320px; overflow-y: auto;">
                 <table class="data-table" id="apiKeysTable">
                   <thead>
                     <tr>
+                      <th style="width: 40px; text-align: center;">
+                        <input type="checkbox" id="selectAllApiKeys" title="Select All">
+                      </th>
                       <th>Key Name</th>
-                      <th>Prefix</th>
+                      <th>API Key Prefix</th>
                       <th>Created By</th>
                       <th>Generated Date</th>
                       <th>Expiry Date</th>
@@ -1160,7 +1169,7 @@
   </div>
 
   <!-- Modal 9: Add API Key Popup -->
-  <div class="modal-overlay hidden" id="addKeyModal">
+  <div class="modal-overlay hidden" id="addKeyModal" style="z-index: 1030;">
     <div class="modal-box" style="max-width: 540px;">
       <div class="modal-header">
         <h3><span class="modal-icon">🗝️</span> Generate New API Key</h3>
@@ -1169,17 +1178,20 @@
       <div class="modal-body">
         <div style="margin-bottom: 0.85rem;">
           <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Key Name</label>
-          <input type="text" id="newKeyName" class="input-text" style="width: 100%;" placeholder="Agent Integration Key">
+          <input type="text" id="newKeyName" class="input-text" style="width: 100%;" placeholder="e.g., Doc-Search-Key">
         </div>
 
         <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.85rem;">
-          <div style="flex: 1;">
-            <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Target Container</label>
+          <div style="flex: 1.2;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Container</label>
             <select id="newKeyContainerSelect" class="input-text" style="width: 100%;">
+              <option value="web_ui">web_ui (Port 8000)</option>
+              <option value="auth_service">auth_service (Port 8001)</option>
               <option value="agents">agents (Port 8002)</option>
               <option value="doc_rag">doc_rag (Port 8003)</option>
               <option value="tools">tools (Port 8005)</option>
               <option value="logging">logging (Port 8006)</option>
+              <option value="ollama">ollama (Port 11434)</option>
               <option value="all">all containers</option>
             </select>
           </div>
@@ -1196,9 +1208,9 @@
 
         <!-- Configured Container & Access List -->
         <div style="margin-bottom: 0.85rem;">
-          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Configured Container Permissions</label>
-          <div id="newKeyPermsList" style="background: #02040a; border: 1.5px solid #334155; border-radius: 4px; padding: 0.5rem; min-height: 50px;">
-            <span class="text-muted" style="font-size: 0.82rem;">No container permissions added yet.</span>
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Configured Containers & Access Levels</label>
+          <div id="newKeyPermsList" style="background: #02040a; border: 1.5px solid #334155; border-radius: 4px; padding: 0.5rem; min-height: 50px; display: flex; flex-direction: column; gap: 0.35rem;">
+            <span class="text-muted" style="font-size: 0.82rem;">No container permissions added yet. Click 'Add' above.</span>
           </div>
         </div>
 
@@ -1215,7 +1227,7 @@
   </div>
 
   <!-- Modal 10: Show Generated API Key Popup -->
-  <div class="modal-overlay hidden" id="showKeyModal">
+  <div class="modal-overlay hidden" id="showKeyModal" style="z-index: 1050;">
     <div class="modal-box" style="max-width: 480px;">
       <div class="modal-header">
         <h3><span class="modal-icon text-success">✅</span> API Key Generated Successfully</h3>
@@ -1229,34 +1241,110 @@
           <button id="btnCopyGeneratedKey" class="btn-copy">📋 Copy</button>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="display: flex; justify-content: flex-end;">
         <button id="btnCloseShowKeyModal" class="btn-secondary">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal 11: Edit API Key Modal -->
-  <div class="modal-overlay hidden" id="editKeyModal">
-    <div class="modal-box" style="max-width: 520px;">
+  <!-- Modal 11: Edit API Key Modal (Same layout as Add API Key) -->
+  <div class="modal-overlay hidden" id="editKeyModal" style="z-index: 1030;">
+    <div class="modal-box" style="max-width: 540px;">
       <div class="modal-header">
         <h3><span class="modal-icon">✏️</span> Edit API Key: <span id="editKeyNameDisplay"></span></h3>
         <button id="btnCloseEditKeyModalX" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="editKeyId">
-        <div style="margin-bottom: 1rem;">
-          <h4 style="font-size: 0.88rem; margin-bottom: 0.5rem;">Configured Access Levels:</h4>
-          <div id="editKeyRowsContainer" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="margin-bottom: 0.85rem;">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Key Name</label>
+          <input type="text" id="editKeyNameInput" class="input-text" style="width: 100%;">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.85rem;">
+          <div style="flex: 1.2;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Container</label>
+            <select id="editKeyContainerSelect" class="input-text" style="width: 100%;">
+              <option value="web_ui">web_ui (Port 8000)</option>
+              <option value="auth_service">auth_service (Port 8001)</option>
+              <option value="agents">agents (Port 8002)</option>
+              <option value="doc_rag">doc_rag (Port 8003)</option>
+              <option value="tools">tools (Port 8005)</option>
+              <option value="logging">logging (Port 8006)</option>
+              <option value="ollama">ollama (Port 11434)</option>
+              <option value="all">all containers</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Access Level</label>
+            <select id="editKeyLevelSelect" class="input-text" style="width: 100%;">
+              <option value="Read">Read</option>
+              <option value="Write">Write</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <button id="btnEditAddContainerPerm" class="btn-secondary" style="padding: 0.5rem 1rem;">Add</button>
+        </div>
+
+        <!-- Configured Container & Access List -->
+        <div style="margin-bottom: 0.85rem;">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Configured Containers & Access Levels</label>
+          <div id="editKeyRowsContainer" style="background: #02040a; border: 1.5px solid #334155; border-radius: 4px; padding: 0.5rem; min-height: 50px; display: flex; flex-direction: column; gap: 0.4rem;">
             <!-- Dynamically populated rows with dropdown containing Read, Write, Admin, Delete -->
           </div>
         </div>
+
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 4px;">Expiry Date / Time</label>
+          <input type="datetime-local" id="editKeyExpiry" class="input-text" style="width: 100%;">
+        </div>
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: space-between;">
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
         <button id="btnCancelEditKey" class="btn-secondary">Cancel</button>
         <div style="display: flex; gap: 0.5rem;">
           <button id="btnDeleteKey" class="btn-danger">Delete</button>
           <button id="btnUpdateKey" class="btn-primary">Update</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 12: Confirm Delete Selected API Keys -->
+  <div class="modal-overlay hidden" id="deleteSelectedKeysModal" style="z-index: 1050;">
+    <div class="modal-box" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3><span class="modal-icon text-danger">🗑️</span> Delete Selected API Keys</h3>
+        <button id="btnCloseDeleteSelectedKeysModalX" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 0.75rem; color: #cbd5e1;">Are you sure you want to delete the following selected API keys?</p>
+        <div id="deleteSelectedKeysList" style="max-height: 180px; overflow-y: auto; background: #0b1120; border: 1px solid #334155; border-radius: 6px; padding: 0.75rem; font-size: 0.85rem;">
+          <!-- Injected selected keys -->
+        </div>
+        <p class="modal-alert-text" style="margin-top: 0.75rem; font-size: 0.82rem; color: #ef4444;">
+          Warning: This action will permanently delete these keys.
+        </p>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button id="btnCancelDeleteSelectedKeys" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmDeleteSelectedKeys" class="btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 13: Confirmation Modal for Single Key Delete / Update -->
+  <div class="modal-overlay hidden" id="confirmKeyActionModal" style="z-index: 1060;">
+    <div class="modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="confirmKeyActionTitle"><span class="modal-icon">⚠️</span> Confirm Action</h3>
+        <button id="btnCloseConfirmKeyActionModalX" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmKeyActionMessage" style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5;"></p>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button id="btnCancelConfirmKeyAction" class="btn-secondary">Cancel</button>
+        <button id="btnExecuteConfirmKeyAction" class="btn-primary">Confirm</button>
       </div>
     </div>
   </div>
