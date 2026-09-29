@@ -394,6 +394,10 @@
       <!-- High-Level Metric Tiles -->
       <div class="metric-tiles-grid">
         <div class="metric-tile">
+          <div class="metric-label">Total Chat</div>
+          <div class="metric-value" id="telTotalChat">0</div>
+        </div>
+        <div class="metric-tile">
           <div class="metric-label">Total Prompts</div>
           <div class="metric-value" id="telTotalPrompts">0</div>
         </div>
@@ -451,9 +455,9 @@
 
         <div class="card-body">
           <div class="charts-double-grid">
-            <!-- Left Plot: Prompts, Responses, Errors -->
+            <!-- Left Plot: Chat Requests, LLM Requests, LLM Responses, Errors -->
             <div class="chart-wrapper">
-              <h4 class="chart-title">Request Throughput (Prompts / Responses / Errors)</h4>
+              <h4 class="chart-title">Request Throughput (Chat Requests / LLM Requests / LLM Responses / Errors)</h4>
               <div class="canvas-container">
                 <canvas id="chartThroughput"></canvas>
               </div>

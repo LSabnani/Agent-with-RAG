@@ -250,20 +250,28 @@ Live operational analytics and token velocity monitoring.
 - **Refresh Telemetry** button: Triggers on-demand re-aggregation.
 
 #### 2.6.2 Top KPI Cards
-- `Total Prompts`: Count of user requests processed.
-- `Total Responses`: Count of agent synthesis responses returned.
+- `Total Chat`: Count of user-submitted chat requests (`chat_request` / `send_chat_request`).
+- `Total Prompts`: Count of model requests (`llm_invocation`).
+- `Total Responses`: Count of model responses (`llm_response`).
 - `Total Errors`: Total failed invocations or HTTP errors.
 - `Total Input Tokens`: Cumulative prompt tokens consumed.
 - `Total Output Tokens`: Cumulative completion tokens generated.
 
 #### 2.6.3 Top Card: "System Throughput & Token Velocity"
 Contains two interactive responsive timeline charts rendered with **local time** coordinates:
-1. **Left Chart (Throughput)**: Multi-line chart tracking Prompts, Responses, and Errors per interval.
+1. **Left Chart (Request Throughput)**: Multi-line chart tracking:
+   - `Chat Requests`: Count of user chat requests (`chat_request`) per interval.
+   - `LLM Requests`: Count of model prompt invocations (`llm_invocation`) per interval.
+   - `LLM Responses`: Count of model responses (`llm_response`) per interval.
+   - `Errors`: Count of failed invocations per interval.
 2. **Right Chart (Token Velocity)**: Multi-line chart tracking Input Tokens and Output Tokens per interval.
+- **Dynamic Time Range Updating**:
+  - Selecting any time range (`Last hr`, `1 day`, `Week`, `Month`, or `Custom`) dynamically updates the continuous timeline buckets and axes across the full selected time window.
+  - Selecting `Custom` reveals date pickers and immediately updates the charts to the chosen date span.
 - **Timezone Handling**:
   - The client provides `tz_offset = new Date().getTimezoneOffset()` in API parameters.
   - Bucket boundaries are computed in the user's local timezone so day and hour buckets align to the local day and hour.
-  - X-axis labels render in local time (`HH:MM` for minute/hour intervals, `MM-DD` for daily intervals).
+  - X-axis labels render in local time (`HH:MM` for same-day intervals, `MM-DD` or `MM-DD HH:MM` for multi-day intervals).
   - Hover tooltips display the full local date and time (`YYYY-MM-DD HH:mm:ss`).
 
 #### 2.6.4 Bottom Card: "Inference Performance & Latency Telemetry"
@@ -617,8 +625,7 @@ Emma Watson,Vancouver,Canada,Director of Engineering
 - `GET /api/conversations/<conversation_id>/events` -> Returns chronological events for conversation with `local_time`.
 - `GET /api/logs/telemetry`
   - Query Params: `model`, `interval` (`1 min`, `15 min`, `1 hr`, `1 day`), `time_range` (`Last hr`, `1 day`, `Week`, `Month`, `Custom`), `start_date`, `end_date`, `tz_offset`.
-  - Returns timeline chart series (`prompts`, `responses`, `errors`, `input_tokens`, `output_tokens`), `labels` (in local time), `epochs`, and performance metrics (`avg_latency_ms`, `ttft_ms`, `itl_ms`, `tps`, `tpot_ms`).
-- `POST /api/logs/clear` -> Wipes `log.json` and resets statistics.
+  - Returns `summary` (`total_chat`, `total_prompts`, `total_responses`, `total_errors`, `total_input_tokens`, `total_output_tokens`), timeline chart series (`chat_requests`, `llm_requests`, `llm_responses`, `errors`, `input_tokens`, `output_tokens`), `labels` (in local time), `epochs`, and performance metrics (`avg_latency_ms`, `ttft_ms`, `itl_ms`, `tps`, `tpot_ms`). Continuous timeline buckets dynamically adapt to the requested time range.
 
 ---
 

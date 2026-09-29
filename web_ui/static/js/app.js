@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements - Page 3 (Telemetry)
   const telemetryModelFilter = document.getElementById('telemetryModelFilter');
   const btnRefreshTelemetry = document.getElementById('btnRefreshTelemetry');
+  const telTotalChat = document.getElementById('telTotalChat');
   const telTotalPrompts = document.getElementById('telTotalPrompts');
   const telTotalResponses = document.getElementById('telTotalResponses');
   const telTotalErrors = document.getElementById('telTotalErrors');
@@ -861,8 +862,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 2. Summary stats
       const s = data.summary || data || {};
-      telTotalPrompts.textContent = (s.total_prompts || 0).toLocaleString();
-      telTotalResponses.textContent = (s.total_responses || 0).toLocaleString();
+      if (telTotalChat) {
+        telTotalChat.textContent = (s.total_chat !== undefined ? s.total_chat : (s.total_chats || 0)).toLocaleString();
+      }
+      telTotalPrompts.textContent = (s.total_llm_requests !== undefined ? s.total_llm_requests : (s.total_prompts || 0)).toLocaleString();
+      telTotalResponses.textContent = (s.total_llm_responses !== undefined ? s.total_llm_responses : (s.total_responses || 0)).toLocaleString();
       telTotalErrors.textContent = (s.total_errors || 0).toLocaleString();
       telTotalInTokens.textContent = (s.total_input_tokens || 0).toLocaleString();
       telTotalOutTokens.textContent = (s.total_output_tokens || 0).toLocaleString();
@@ -885,8 +889,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderTelemetryCharts(chartsData) {
     const rawLabels = chartsData.labels || [];
     const epochs = chartsData.epochs || [];
-    const prompts = chartsData.prompts || [];
-    const responses = chartsData.responses || [];
+    const chatRequests = chartsData.chat_requests || [];
+    const llmRequests = chartsData.llm_requests || chartsData.prompts || [];
+    const llmResponses = chartsData.llm_responses || chartsData.responses || [];
     const errors = chartsData.errors || [];
     const inTokens = chartsData.input_tokens || [];
     const outTokens = chartsData.output_tokens || [];
@@ -894,9 +899,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Format chart labels to local time
     const pad = n => String(n).padStart(2, '0');
     const isDaily = telIntervalSelect && (telIntervalSelect.value === '1 day' || telIntervalSelect.value.includes('day'));
+    const isMultiDay = telRangeSelect && (['Week', 'Month', 'Custom'].includes(telRangeSelect.value));
     const labels = (epochs && epochs.length === rawLabels.length) ? epochs.map(ep => {
       const d = new Date(ep * 1000);
-      return isDaily ? `${pad(d.getMonth() + 1)}-${pad(d.getDate())}` : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      if (isDaily) return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      if (isMultiDay) return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }) : rawLabels;
 
     // Safely destroy existing Chart instances before creating new ones
@@ -957,20 +965,28 @@ document.addEventListener('DOMContentLoaded', () => {
           labels: labels,
           datasets: [
             {
-              label: 'Prompts',
-              data: prompts,
+              label: 'Chat Requests',
+              data: chatRequests,
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              tension: 0.3,
+              fill: false,
+            },
+            {
+              label: 'LLM Requests',
+              data: llmRequests,
               borderColor: '#3b82f6',
               backgroundColor: 'rgba(59, 130, 246, 0.1)',
               tension: 0.3,
-              fill: true,
+              fill: false,
             },
             {
-              label: 'Responses',
-              data: responses,
+              label: 'LLM Responses',
+              data: llmResponses,
               borderColor: '#10b981',
               backgroundColor: 'rgba(16, 185, 129, 0.1)',
               tension: 0.3,
-              fill: true,
+              fill: false,
             },
             {
               label: 'Errors',
@@ -978,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
               borderColor: '#ef4444',
               backgroundColor: 'rgba(239, 68, 68, 0.1)',
               tension: 0.3,
-              fill: true,
+              fill: false,
             },
           ],
         },
@@ -1024,8 +1040,24 @@ document.addEventListener('DOMContentLoaded', () => {
   telRangeSelect.addEventListener('change', () => {
     if (telRangeSelect.value === 'Custom') {
       customDateBoxes.classList.remove('hidden');
+      if (!telStartDate.value || !telEndDate.value) {
+        const today = new Date();
+        const past = new Date(today.getTime() - 7 * 24 * 3600 * 1000);
+        telEndDate.value = today.toISOString().split('T')[0];
+        telStartDate.value = past.toISOString().split('T')[0];
+      }
+      loadTelemetryData();
     } else {
       customDateBoxes.classList.add('hidden');
+      if (telRangeSelect.value === 'Last hr') {
+        telIntervalSelect.value = '1 min';
+      } else if (telRangeSelect.value === '1 day') {
+        telIntervalSelect.value = '15 min';
+      } else if (telRangeSelect.value === 'Week') {
+        telIntervalSelect.value = '1 hr';
+      } else if (telRangeSelect.value === 'Month') {
+        telIntervalSelect.value = '1 day';
+      }
       loadTelemetryData();
     }
   });

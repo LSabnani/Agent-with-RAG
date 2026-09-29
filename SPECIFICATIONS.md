@@ -166,14 +166,14 @@ The Main App window should have:
 - The Web UI queries the Logging container's statistics and query API to compute and display the telemetry counters and timeline graphs.
 - On the right side of the page, put the button called “Refresh Telemetry” to allow the user to manually refresh the page.
 - To the left of the “Refresh Telemetry” button, add a dropdown box to list the models that have been used. Filter the contents of the telemetry page based on the model selected. Include “All Models” as the default option.
-- Next, shows Total Prompts, Total Response, Total Errors, Total Input Tokens, and Total Output Tokens sent to and received from the LLM models.
+- Next, shows Total Chat (count of user chat requests), Total Prompts (model requests), Total Responses (count of LLM responses), Total Errors, Total Input Tokens, and Total Output Tokens.
 - Convert and display all time stamps in the user's local time zone.
 
 #### Top Card: "System Throughput & Token Velocity"
 - Below the statistic, add a card that shows 2 graphs.
   - At the top of the box, there is a dropdown that selects the Aggregation/Refresh Interval with choices: 1 min, 15 min (default), 1 hr, and 1 day.
-  - The second dropdown to the right allows the user to select the time range with options for: Last hr, 1 day (default), Week, Month and Custom. When Custom is selected, bring up two boxes with a dropdown calendar that allows the user to select the starting date and ending date.
-  - Below the selection, the Left plot shows the line graphs of the number of prompts, responses and errors per Interval selected. The X-axis shows the time range selected.
+  - The second dropdown to the right allows the user to select the time range with options for: Last hr, 1 day (default), Week, Month and Custom. When Custom is selected, bring up two boxes with a dropdown calendar that allows the user to select the starting date and ending date. Changing the Time Range updates the charts dynamically to display the continuous time span.
+  - Below the selection, the Left plot shows the line graphs of Request Throughput for "Chat Requests" (count of chat_request), "LLM Requests" (count of llm_invocation), "LLM Responses" (count of llm_response), and "Errors" per interval selected. The X-axis shows the time range selected.
   - The right plot shows the line graph of the number of input and output tokens per interval selected. The X-axis shows the time range selected.
 
 #### Bottom Card: “Other Important Statistic not Available for Low-Performance Computer”
@@ -909,11 +909,12 @@ All container-to-container communications must record the complete, untruncated 
       "used_models": ["bge-large:latest", "gemini-3.1-flash-lite", ...],
       "models_used": ["bge-large:latest", "gemini-3.1-flash-lite", ...],
       "summary": {
-        "total_prompts": 18,
-        "total_responses": 21,
-        "total_errors": 25,
-        "total_input_tokens": 4022,
-        "total_output_tokens": 262
+        "total_chat": 24,
+        "total_prompts": 82,
+        "total_responses": 77,
+        "total_errors": 18,
+        "total_input_tokens": 200935,
+        "total_output_tokens": 5005
       },
       "performance": {
         "avg_latency_ms": 2510.4,
@@ -924,8 +925,9 @@ All container-to-container communications must record the complete, untruncated 
       },
       "charts": {
         "labels": ["04:30", "04:45", ...],
-        "prompts": [0, 1, ...],
-        "responses": [0, 1, ...],
+        "chat_requests": [0, 1, ...],
+        "llm_requests": [0, 2, ...],
+        "llm_responses": [0, 2, ...],
         "errors": [0, 0, ...],
         "input_tokens": [0, 863, ...],
         "output_tokens": [0, 7, ...]

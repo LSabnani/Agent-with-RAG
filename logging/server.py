@@ -393,9 +393,9 @@ def get_telemetry():
 
     logs = load_logs()
 
-    # Determine time bounds
+    # Determine time bounds (timezone-aware)
     now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=1)
+    end_bound = now
     if "last hr" in raw_range or "1h" in raw_range or "hour" in raw_range:
         cutoff = now - timedelta(hours=1)
     elif "1 day" in raw_range or "1d" in raw_range or "day" in raw_range:
@@ -404,17 +404,37 @@ def get_telemetry():
         cutoff = now - timedelta(days=7)
     elif "month" in raw_range or "30d" in raw_range:
         cutoff = now - timedelta(days=30)
-    elif "custom" in raw_range and start_date:
-        try:
-            cutoff = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-        except Exception:
-            pass
+    elif "custom" in raw_range:
+        if start_date:
+            try:
+                if len(start_date) == 10:
+                    cutoff = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                else:
+                    cutoff = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            except Exception:
+                cutoff = now - timedelta(days=7)
+        else:
+            cutoff = now - timedelta(days=7)
+
+        if end_date:
+            try:
+                if len(end_date) == 10:
+                    end_bound = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+                else:
+                    end_bound = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            except Exception:
+                end_bound = now
+        else:
+            end_bound = now
+    else:
+        cutoff = now - timedelta(days=1)
 
     # Filter logs
     relevant = []
     models_used = set()
-    total_prompts = 0
-    total_responses = 0
+    total_chat = 0
+    total_llm_requests = 0
+    total_llm_responses = 0
     total_errors = 0
     total_input_tokens = 0
     total_output_tokens = 0
@@ -430,21 +450,25 @@ def get_telemetry():
         ts_str = l.get("timestamp")
         try:
             ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-            if ts < cutoff:
-                continue
-            if end_date and ts > datetime.fromisoformat(end_date.replace("Z", "+00:00")):
+            if ts < cutoff or ts > end_bound:
                 continue
         except Exception:
-            pass
+            continue
 
         relevant.append(l)
 
         # Counting
-        l_type = l.get("type", "")
-        if any(t in l_type for t in ["chat_request", "prompt", "llm_request", "user_query"]) and l_type not in ["received_chat_request"]:
-            total_prompts += 1
-        elif any(t in l_type for t in ["chat_response", "llm_response", "agent_response"]) and l_type not in ["received_chat_response"]:
-            total_responses += 1
+        l_type = (l.get("type") or "").strip()
+        is_chat_req = ("chat_request" in l_type or l_type == "user_query") and l_type != "received_chat_request"
+        is_llm_req = "llm_invocation" in l_type or l_type == "llm_request"
+        is_llm_resp = l_type == "llm_response" or ("llm_response" in l_type and l_type != "received_llm_response")
+
+        if is_chat_req:
+            total_chat += 1
+        if is_llm_req:
+            total_llm_requests += 1
+        if is_llm_resp:
+            total_llm_responses += 1
 
         if l.get("is_error") or l.get("status") in ["error", "failure"]:
             total_errors += 1
@@ -455,44 +479,75 @@ def get_telemetry():
         total_output_tokens += out_tok
 
         dur = l.get("duration_ms", 0)
-        if dur > 0 and (any(t in l_type for t in ["llm_response", "chat_response", "embedding_query"]) or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"]):
+        if dur > 0 and (is_llm_resp or any(t in l_type for t in ["chat_response", "embedding_query"]) or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"]):
             latencies.append(dur)
 
-    # Calculate throughput / token velocity timeline points aggregated into buckets in local time
+    # Initialize continuous timeline buckets across requested time window
+    start_epoch = int(cutoff.timestamp())
+    end_epoch = int(end_bound.timestamp())
+
+    start_local = start_epoch + tz_shift
+    b_start_local = start_local - (start_local % bucket_seconds)
+    b_start_epoch = b_start_local - tz_shift
+
+    end_local = end_epoch + tz_shift
+    b_end_local = end_local - (end_local % bucket_seconds)
+    b_end_epoch = b_end_local - tz_shift
+
+    step_seconds = bucket_seconds
+    total_steps = ((b_end_epoch - b_start_epoch) // step_seconds) + 1 if step_seconds > 0 else 1
+    if total_steps > 200:
+        step_seconds = max(bucket_seconds, (b_end_epoch - b_start_epoch) // 100)
+
     buckets = {}
+    cur_epoch = b_start_epoch
+    span_seconds = end_epoch - start_epoch
+    while cur_epoch <= b_end_epoch:
+        dt_local = datetime.fromtimestamp(cur_epoch, tz)
+        if bucket_seconds >= 86400 or span_seconds > 86400 * 2:
+            b_key = dt_local.strftime("%m-%d" if bucket_seconds >= 86400 else "%m-%d %H:%M")
+        else:
+            b_key = dt_local.strftime("%H:%M")
+
+        buckets[cur_epoch] = {
+            "time": b_key,
+            "local_time": b_key,
+            "epoch": cur_epoch,
+            "chat_requests": 0,
+            "llm_requests": 0,
+            "llm_responses": 0,
+            "prompts": 0,
+            "responses": 0,
+            "errors": 0,
+            "input_tokens": 0,
+            "output_tokens": 0
+        }
+        cur_epoch += step_seconds
+
+    # Populate buckets from relevant logs
     for l in relevant:
         try:
             ts = datetime.fromisoformat(l.get("timestamp").replace("Z", "+00:00"))
             epoch = int(ts.timestamp())
             local_epoch = epoch + tz_shift
-            b_local_epoch = local_epoch - (local_epoch % bucket_seconds)
+            b_local_epoch = local_epoch - (local_epoch % step_seconds)
             b_epoch = b_local_epoch - tz_shift
 
-            dt_local = datetime.fromtimestamp(b_epoch, tz)
-            b_key = dt_local.strftime("%H:%M" if bucket_seconds < 86400 else "%m-%d")
+            if b_epoch in buckets:
+                lt = (l.get("type") or "").strip()
+                if ("chat_request" in lt or lt == "user_query") and lt != "received_chat_request":
+                    buckets[b_epoch]["chat_requests"] += 1
+                if "llm_invocation" in lt or lt == "llm_request":
+                    buckets[b_epoch]["llm_requests"] += 1
+                    buckets[b_epoch]["prompts"] += 1
+                if lt == "llm_response" or ("llm_response" in lt and lt != "received_llm_response"):
+                    buckets[b_epoch]["llm_responses"] += 1
+                    buckets[b_epoch]["responses"] += 1
+                if l.get("is_error") or l.get("status") in ["error", "failure"]:
+                    buckets[b_epoch]["errors"] += 1
 
-            if b_epoch not in buckets:
-                buckets[b_epoch] = {
-                    "time": b_key,
-                    "local_time": b_key,
-                    "epoch": b_epoch,
-                    "prompts": 0,
-                    "responses": 0,
-                    "errors": 0,
-                    "input_tokens": 0,
-                    "output_tokens": 0
-                }
-
-            lt = l.get("type", "")
-            if any(t in lt for t in ["chat_request", "prompt", "llm_request", "user_query"]) and lt not in ["received_chat_request"]:
-                buckets[b_epoch]["prompts"] += 1
-            elif any(t in lt for t in ["chat_response", "llm_response", "agent_response"]) and lt not in ["received_chat_response"]:
-                buckets[b_epoch]["responses"] += 1
-            if l.get("is_error") or l.get("status") in ["error", "failure"]:
-                buckets[b_epoch]["errors"] += 1
-
-            buckets[b_epoch]["input_tokens"] += (l.get("input_tokens") or 0)
-            buckets[b_epoch]["output_tokens"] += (l.get("output_tokens") or 0)
+                buckets[b_epoch]["input_tokens"] += (l.get("input_tokens") or 0)
+                buckets[b_epoch]["output_tokens"] += (l.get("output_tokens") or 0)
         except Exception:
             continue
 
@@ -501,16 +556,23 @@ def get_telemetry():
     charts = {
         "labels": [b["time"] for b in timeline],
         "epochs": [b["epoch"] for b in timeline],
-        "prompts": [b["prompts"] for b in timeline],
-        "responses": [b["responses"] for b in timeline],
+        "chat_requests": [b["chat_requests"] for b in timeline],
+        "llm_requests": [b["llm_requests"] for b in timeline],
+        "llm_responses": [b["llm_responses"] for b in timeline],
         "errors": [b["errors"] for b in timeline],
+        "prompts": [b["llm_requests"] for b in timeline],
+        "responses": [b["llm_responses"] for b in timeline],
         "input_tokens": [b["input_tokens"] for b in timeline],
         "output_tokens": [b["output_tokens"] for b in timeline]
     }
 
     summary = {
-        "total_prompts": total_prompts,
-        "total_responses": total_responses,
+        "total_chat": total_chat,
+        "total_chats": total_chat,
+        "total_prompts": total_llm_requests,
+        "total_llm_requests": total_llm_requests,
+        "total_responses": total_llm_responses,
+        "total_llm_responses": total_llm_responses,
         "total_errors": total_errors,
         "total_input_tokens": total_input_tokens,
         "total_output_tokens": total_output_tokens
@@ -535,8 +597,12 @@ def get_telemetry():
         "used_models": sorted(list(models_used)),
         "models_used": sorted(list(models_used)),
         "summary": summary,
-        "total_prompts": total_prompts,
-        "total_responses": total_responses,
+        "total_chat": total_chat,
+        "total_chats": total_chat,
+        "total_prompts": total_llm_requests,
+        "total_llm_requests": total_llm_requests,
+        "total_responses": total_llm_responses,
+        "total_llm_responses": total_llm_responses,
         "total_errors": total_errors,
         "total_input_tokens": total_input_tokens,
         "total_output_tokens": total_output_tokens,

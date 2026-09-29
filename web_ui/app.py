@@ -813,7 +813,7 @@ def proxy_telemetry():
         r = requests.get(f"{url}/api/logs/telemetry", params=request.args, timeout=5)
         return jsonify(r.json())
     except Exception as e:
-        return jsonify({"models_used": [], "total_prompts": 0, "total_responses": 0, "total_errors": 0, "total_input_tokens": 0, "total_output_tokens": 0, "timeline": [], "metrics": {}})
+        return jsonify({"models_used": [], "total_chat": 0, "total_chats": 0, "total_prompts": 0, "total_llm_requests": 0, "total_responses": 0, "total_llm_responses": 0, "total_errors": 0, "total_input_tokens": 0, "total_output_tokens": 0, "timeline": [], "metrics": {}})
 
 @app.route("/api/audit/conversations", methods=["GET"])
 @app.route("/api/logs", methods=["GET"])
