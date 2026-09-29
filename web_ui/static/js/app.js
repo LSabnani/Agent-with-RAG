@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         agent: agentChoice.value,
         model: chatModel.value,
         temperature: parseFloat(chatTemperature.value) || 0.7,
-        max_tokens: parseInt(chatMaxTokens.value) || 4096,
+        max_tokens: parseInt(chatMaxTokens.value) || 2048,
         max_turns: parseInt(chatMaxTurns.value) || 3,
         rag_chunks: parseInt(chatRagChunks.value) || 5,
         skill_mode: chatSkills.value,

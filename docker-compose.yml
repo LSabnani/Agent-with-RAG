@@ -121,6 +121,8 @@ services:
       - "8000:8000"
     volumes:
       - ./web_ui/secrets:/app/secrets
+      - ./web_ui/static:/app/static
+      - ./web_ui/templates:/app/templates
       - ./agents/secrets:/app/container_secrets/agents
       - ./doc_RAG/secrets:/app/container_secrets/doc_rag
       - ./tools/secrets:/app/container_secrets/tools

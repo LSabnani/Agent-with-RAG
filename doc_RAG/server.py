@@ -45,7 +45,7 @@ def load_rag_keys():
                         else:
                             keys[line] = line
         except Exception as e:
-            print(f"[doc_RAG] Error reading keys file: {e}")
+            print(f"[Vector DB] Error reading keys file: {e}")
     return keys
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_DIR, settings=Settings(anonymized_telemetry=False))
@@ -84,7 +84,7 @@ def check_auth(api_key, required_level="read", invoker="agent"):
         url = resolve_url(AUTH_SERVICE_URL, "auth_service", 8001)
         resp = requests.post(url, json={
             "api_key": api_key,
-            "container": "doc_rag",
+            "container": "Vector DB",
             "access_level": required_level,
             "invoker": invoker
         }, timeout=2)
@@ -159,7 +159,7 @@ def chunk_text(text, chunk_size=800, overlap=100):
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "service": "doc_RAG", "port": 8003})
+    return jsonify({"status": "healthy", "service": "Vector DB", "port": 8003})
 
 # 1. List all the documents and skills
 @app.route("/api/rag/list", methods=["GET"])
@@ -516,7 +516,7 @@ def query_documents():
     log_event(
         invoker=data.get("invoker", "agent"),
         recipient="Vector DB",
-        event_type="vector_db_query_request",
+        event_type="received_vector_query_request",
         short_desc=f"Query {doc_type} DB request",
         req_payload=query_req_payload,
         resp_payload={},

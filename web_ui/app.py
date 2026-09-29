@@ -319,7 +319,7 @@ def proxy_chat():
     log_event(
         invoker="Web UI",
         recipient="agents",
-        event_type="chat_request",
+        event_type="send_chat_request",
         desc=f"Web UI submitted query: '{data.get('message', '')[:80]}'",
         payload=data,
         conv_id=conv_id
@@ -348,11 +348,15 @@ def proxy_chat():
         elif not res_data.get("retrieved_evidence"):
             res_data["retrieved_evidence"] = {"skills": [], "documents": []}
 
+        # Ensure user_query is present in res_data
+        if not res_data.get("user_query") and data.get("message"):
+            res_data["user_query"] = data.get("message")
+
         # Log response received by Web UI from Agents
         log_event(
             invoker="agents",
             recipient="Web UI",
-            event_type="chat_response",
+            event_type="received_chat_response",
             desc=f"Web UI received response from agent ({res_data.get('elapsed_ms', 0)}ms)",
             payload=res_data,
             conv_id=conv_id,
@@ -398,8 +402,8 @@ def extract_evidence_from_logs(conv_id):
         req = payload.get("request", {}) if isinstance(payload.get("request"), dict) else {}
         resp = payload.get("response", {}) if isinstance(payload.get("response"), dict) else {}
 
-        # 1. Skills: skill_vector_response or vector_db_query_response with skill
-        if l_type == "skill_vector_response" or (l_type == "vector_db_query_response" and req.get("document_type") == "skill"):
+        # 1. Skills: skill_vector_response or received_skill_vector_response or vector_db_query_response with skill
+        if "skill_vector_response" in l_type or (l_type in ["vector_db_query_response", "received_vector_query_request"] and req.get("document_type") == "skill"):
             items = payload.get("results") or resp.get("matched_items") or []
             for item in items:
                 name = item.get("skill_name") or item.get("name") or "Skill"
@@ -420,8 +424,8 @@ def extract_evidence_from_logs(conv_id):
                         if s["name"] == name and score > s["similarity"]:
                             s["similarity"] = score
 
-        # 2. Documents: document_vector_response or vector_db_query_response with document
-        if l_type == "document_vector_response" or (l_type == "vector_db_query_response" and req.get("document_type") == "document"):
+        # 2. Documents: document_vector_response or received_document_vector_response or vector_db_query_response with document
+        if "document_vector_response" in l_type or (l_type in ["vector_db_query_response", "received_vector_query_request"] and req.get("document_type") == "document"):
             items = payload.get("results") or resp.get("matched_items") or []
             for item in items:
                 meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}

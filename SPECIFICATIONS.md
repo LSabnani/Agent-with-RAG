@@ -80,20 +80,13 @@ The Main App window should have:
   - Include the option to select a Custom model. When the Custom model is selected, show a text box for the user to enter the API Endpoint of the model. The default text should be the last endpoint entered. If none exists, put “http://127.0.0.1:8010/v1/chat/completions”.
   - To the left of the model choice dropdown, add a box to allow the user to select the “Temperature” parameter to send to the model.
   - To the left of the temperature box, add a text box to allow the user to set the “Max Tokens” parameter to send to the model. Do not allow the user to set the number larger than the max tokens of the model selected.
+  - The following left and right cards should be the same width
     
 #### Left Card: "Chat with the Agent"
 - Add a drop down box called "Agent" on the right side of the card. The choices are: Custom Agent, Google ADK LlmAgent.
   - If the user selects Custom Agent, use the agent described in the Agent section of this document.
   - If the user selects Google ADK Agent, use the google ADK agent
 - To the right of the "Agent" box, add a text box for the user to select the "Max Turns" the default is 3. Do not allow the user to set the number larger than 10. Use this as the maximum number of turns for the maximum Agent loop or number of turns.
-- In the next row, add a dropbox called "Skill Selector" to allow the user to select the skills the agent can use.
-  - The first option in the dropbox should be "Vector Store Selects" (default option). The Custom Agent will query the skills vector store to select the skills to use in the prompt to the model.
-  - The second option should be "LLM Selects". The Custom Agent will ask the LLM to select the skills to use in the prompt to the model.
-  - The remainder of the selection should be the list of skills in skills/ folder. The Custom Agent will use the skills selected in the prompt to the model.
-- Add a text box "Skill Threshold" for the user to enter the threshold when the skill selection is "Vector Store Selects".
-  - Use this number as the threshold when querying the vector store.
-  - The default value is 0.2.
-  - Remove this box if for other selection for "Skill Selector"
 - At the bottom of the card, put a text box for the user to enter the chat message.
   - Use a new conversation ID for each question
   - When the user clicks on the "Send" button or presses the Enter key, send the message to the agents container to process.
@@ -119,9 +112,17 @@ The Main App window should have:
 - Add a box at the right side of the card named "Doc Threshold" for the user to set the threshold for the document retrieval.
   - The default value is 0.3.
   - Use this number as the minimum matching score the Document Vector Store should use to determine whether the text chunk should be returned in the query.
-- To the left of "Doc Threshold", add a dropbox to allow the user to select the maximum number of RAG chunks to send to the model
-  - Default value is 5.
+- To the left of "Doc Threshold", add a dropbox "Max Chunks" to allow the user to select the maximum number of RAG chunks to send to the model
+  - List number of chunks: 2, 3, 5 (Default), 7, and 10
   - Use this number to limit the number of text chunks to return from the Document Vector Store query.
+- In the next row, add a dropbox called "Skill Selector" to allow the user to select the skills the agent can use.
+  - The first option in the dropbox should be "Vector Store Selects" (default option). The Custom Agent will query the skills vector store to select the skills to use in the prompt to the model.
+  - The second option should be "LLM Selects". The Custom Agent will ask the LLM to select the skills to use in the prompt to the model.
+  - The remainder of the selection should be the list of skills in skills/ folder. The Custom Agent will use the skills selected in the prompt to the model.
+- Add a text box "Skill Threshold" for the user to enter the threshold when the skill selection is "Vector Store Selects".
+  - Use this number as the threshold when querying the vector store.
+  - The default value is 0.2.
+  - Remove this box if for other selection for "Skill Selector"
 - Display the contents of the information retrieved from the Document and Skill vector stores.
   - Pull the information from the Logging container related to the conversation ID for the specific chat message.
   - Group the results by the skills and documents.

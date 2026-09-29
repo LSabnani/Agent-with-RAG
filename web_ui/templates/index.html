@@ -80,7 +80,7 @@
           <!-- Max Tokens -->
           <div class="control-box">
             <label for="chatMaxTokens"><span class="control-icon">🔤</span> Max Tokens</label>
-            <input type="number" id="chatMaxTokens" value="4096" min="128" max="65536" step="128">
+            <input type="number" id="chatMaxTokens" value="2048" min="128" max="65536" step="128">
           </div>
 
           <!-- Temperature -->
@@ -129,31 +129,6 @@
             </div>
           </div>
 
-          <!-- Second Row Parameters -->
-          <div class="chat-param-row">
-            <div class="param-item">
-              <label for="chatSkills"><span class="param-icon">⚡</span> Skill Selector:</label>
-              <select id="chatSkills">
-                <option value="Vector Store Selects" selected>Vector Store Selects (Default)</option>
-                <option value="LLM Selects">LLM Selects</option>
-                <!-- Dynamic Skills populated by JS -->
-              </select>
-            </div>
-            <div class="param-item" id="skillThresholdBox">
-              <label for="chatSkillThreshold"><span class="param-icon">🎯</span> Threshold:</label>
-              <input type="number" id="chatSkillThreshold" value="0.2" min="0.0" max="1.0" step="0.05">
-            </div>
-            <div class="param-item param-item-right">
-              <label for="chatRagChunks"><span class="param-icon">📑</span> Max RAG Chunks:</label>
-              <select id="chatRagChunks">
-                <option value="1">1 Chunk</option>
-                <option value="3">3 Chunks</option>
-                <option value="5" selected>5 Chunks</option>
-                <option value="10">10 Chunks</option>
-              </select>
-            </div>
-          </div>
-
           <!-- Chat Conversation Scroll Area -->
           <div class="chat-messages-container" id="chatMessages">
             <div class="chat-welcome">
@@ -186,10 +161,36 @@
               <span class="card-icon">🔍</span> Retrieved Context Evidence
             </div>
             <div class="card-action-group">
-              <div class="mini-control">
-                <label for="docThresholdInput">Doc Threshold:</label>
+              <div class="header-control">
+                <label for="chatRagChunks"><span class="control-icon">📑</span> Max Chunks:</label>
+                <select id="chatRagChunks">
+                  <option value="2">2 Chunks</option>
+                  <option value="3">3 Chunks</option>
+                  <option value="5" selected>5 Chunks</option>
+                  <option value="7">7 Chunks</option>
+                  <option value="10">10 Chunks</option>
+                </select>
+              </div>
+              <div class="header-control">
+                <label for="docThresholdInput"><span class="control-icon">🎯</span> Doc Threshold:</label>
                 <input type="number" id="docThresholdInput" value="0.3" min="0.0" max="1.0" step="0.05">
               </div>
+            </div>
+          </div>
+
+          <!-- Second Row Parameters for Skills -->
+          <div class="chat-param-row">
+            <div class="param-item">
+              <label for="chatSkills"><span class="param-icon">⚡</span> Skill Selector:</label>
+              <select id="chatSkills">
+                <option value="Vector Store Selects" selected>Vector Store Selects (Default)</option>
+                <option value="LLM Selects">LLM Selects</option>
+                <!-- Dynamic Skills populated by JS -->
+              </select>
+            </div>
+            <div class="param-item" id="skillThresholdBox">
+              <label for="chatSkillThreshold"><span class="param-icon">🎯</span> Skill Threshold:</label>
+              <input type="number" id="chatSkillThreshold" value="0.2" min="0.0" max="1.0" step="0.05">
             </div>
           </div>
 

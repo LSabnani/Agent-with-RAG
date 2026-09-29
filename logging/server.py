@@ -255,24 +255,58 @@ def list_conversations():
             conv["model"] = l.get("model")
 
         # Extract user query or agent response if logged
-        if l.get("type") in ["chat_request", "user_query"]:
-            payload = l.get("payload", {})
-            if isinstance(payload, dict):
-                conv["user_query"] = payload.get("message") or payload.get("query") or conv["user_query"]
-                conv["agent_type"] = payload.get("agent_type") or conv["agent_type"]
-        elif l.get("type") in ["chat_response", "agent_response"]:
-            payload = l.get("payload", {})
-            if isinstance(payload, dict):
-                conv["agent_response"] = payload.get("response") or conv["agent_response"]
+        l_type = str(l.get("type") or l.get("event_type") or "")
+        payload = l.get("payload", {})
+        if not isinstance(payload, dict):
+            payload = {}
+
+        if any(t in l_type for t in ["chat_request", "user_query", "prompt"]):
+            query_text = payload.get("message") or payload.get("query") or payload.get("user_query") or payload.get("prompt")
+            if query_text:
+                conv["user_query"] = query_text
+            agent_t = payload.get("agent_type") or payload.get("agent")
+            if agent_t:
+                conv["agent_type"] = agent_t
+        elif any(t in l_type for t in ["chat_response", "agent_response"]):
+            resp_text = payload.get("response") or payload.get("agent_response") or payload.get("answer") or payload.get("text")
+            if isinstance(resp_text, str) and resp_text.strip():
+                conv["agent_response"] = resp_text
+            agent_t = payload.get("agent_type") or payload.get("agent")
+            if agent_t:
+                conv["agent_type"] = agent_t
+
+        # Fallback if user_query still missing:
+        if not conv["user_query"]:
+            q = payload.get("user_query") or payload.get("message")
+            if q and isinstance(q, str):
+                conv["user_query"] = q
+            elif isinstance(payload.get("steps"), list):
+                for st in payload["steps"]:
+                    p_arg = st.get("payload", {}).get("arguments") or st.get("result", {})
+                    if isinstance(p_arg, dict) and p_arg.get("city"):
+                        conv["user_query"] = f"Weather in {p_arg['city']}"
+                        break
+                    elif isinstance(p_arg, dict) and p_arg.get("keyword"):
+                        conv["user_query"] = f"Person search: {p_arg['keyword']}"
+                        break
+                    elif isinstance(p_arg, dict) and p_arg.get("query"):
+                        conv["user_query"] = str(p_arg["query"])
+                        break
+
+        # Fallback if agent_response still missing:
+        if not conv["agent_response"]:
+            r = payload.get("agent_response") or (payload.get("response") if isinstance(payload.get("response"), str) else None)
+            if r and isinstance(r, str) and r.strip():
+                conv["agent_response"] = r
 
     result = list(conversations.values())
     result.sort(key=lambda x: x["last_seen"], reverse=True)
 
     # Compute statistics for Log Viewer Header Pill
-    total_prompts = sum(1 for l in logs if l.get("type") in ["chat_request", "prompt", "llm_request", "user_query"])
+    total_prompts = sum(1 for l in logs if any(t in (l.get("type") or "") for t in ["chat_request", "prompt", "llm_request", "user_query"]) and (l.get("type") in ["chat_request", "send_chat_request"] or l.get("invoker") == "Web UI"))
     total_model_calls = sum(1 for l in logs if l.get("type") in ["llm_invocation", "llm_response", "llm_request"] or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"])
     total_ollama_embeds = sum(1 for l in logs if l.get("type") == "embedding_query" or l.get("recipient") in ["Embedding", "Embedding Service"])
-    latencies = [l.get("duration_ms", 0) for l in logs if (l.get("duration_ms") or 0) > 0 and l.get("type") in ["llm_response", "chat_response", "embedding_query"]]
+    latencies = [l.get("duration_ms", 0) for l in logs if (l.get("duration_ms") or 0) > 0 and (any(t in (l.get("type") or "") for t in ["llm_response", "chat_response", "embedding_query"]))]
     avg_latency = round(sum(latencies) / len(latencies), 1) if latencies else 0.0
 
     statistics = {
@@ -372,9 +406,9 @@ def get_telemetry():
 
         # Counting
         l_type = l.get("type", "")
-        if l_type in ["chat_request", "prompt", "llm_request", "user_query"]:
+        if any(t in l_type for t in ["chat_request", "prompt", "llm_request", "user_query"]) and l_type not in ["received_chat_request"]:
             total_prompts += 1
-        elif l_type in ["chat_response", "llm_response", "agent_response"]:
+        elif any(t in l_type for t in ["chat_response", "llm_response", "agent_response"]) and l_type not in ["received_chat_response"]:
             total_responses += 1
 
         if l.get("is_error") or l.get("status") in ["error", "failure"]:
@@ -386,7 +420,7 @@ def get_telemetry():
         total_output_tokens += out_tok
 
         dur = l.get("duration_ms", 0)
-        if dur > 0 and (l_type in ["llm_response", "chat_response", "embedding_query"] or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"]):
+        if dur > 0 and (any(t in l_type for t in ["llm_response", "chat_response", "embedding_query"]) or l.get("recipient") in ["LLM", "Custom LLM"] or l.get("invoker") in ["LLM", "Custom LLM"]):
             latencies.append(dur)
 
     # Calculate throughput / token velocity timeline points aggregated into buckets
@@ -402,9 +436,9 @@ def get_telemetry():
                 buckets[b_key] = {"prompts": 0, "responses": 0, "errors": 0, "input_tokens": 0, "output_tokens": 0}
 
             lt = l.get("type", "")
-            if lt in ["chat_request", "prompt", "llm_request", "user_query"]:
+            if any(t in lt for t in ["chat_request", "prompt", "llm_request", "user_query"]) and lt not in ["received_chat_request"]:
                 buckets[b_key]["prompts"] += 1
-            elif lt in ["chat_response", "llm_response", "agent_response"]:
+            elif any(t in lt for t in ["chat_response", "llm_response", "agent_response"]) and lt not in ["received_chat_response"]:
                 buckets[b_key]["responses"] += 1
             if l.get("is_error") or l.get("status") in ["error", "failure"]:
                 buckets[b_key]["errors"] += 1

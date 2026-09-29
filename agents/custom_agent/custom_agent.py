@@ -208,7 +208,7 @@ class CustomAgent:
         self.log(
             invoker="Web UI",
             recipient="Custom Agent",
-            event_type="chat_request",
+            event_type="received_chat_request",
             desc=f"User query received: '{message[:50]}...'",
             payload={
                 "message": message,
@@ -255,7 +255,7 @@ class CustomAgent:
                 }
                 self.log(
                     invoker="Custom Agent",
-                    recipient="doc_rag",
+                    recipient="Vector DB",
                     event_type="skill_vector_query",
                     desc=f"Query skills vector DB: '{message[:80]}'",
                     payload=skill_req,
@@ -277,9 +277,9 @@ class CustomAgent:
                             "description": desc
                         })
                     self.log(
-                        invoker="doc_rag",
+                        invoker="Vector DB",
                         recipient="Custom Agent",
-                        event_type="skill_vector_response",
+                        event_type="received_skill_vector_response",
                         desc=f"Received {len(matched_skills)} matched skills",
                         payload={"results": matched_skills, "count": len(matched_skills)},
                         conv_id=conversation_id
@@ -419,7 +419,7 @@ class CustomAgent:
                         }
                         self.log(
                             invoker="Custom Agent",
-                            recipient="doc_rag",
+                            recipient="Vector DB",
                             event_type="document_vector_query",
                             desc=f"Query document vector DB: '{doc_req['query'][:80]}'",
                             payload=doc_req,
@@ -455,9 +455,9 @@ class CustomAgent:
                                     })
                             retrieved_evidence["documents"].extend(list(doc_groups.values()))
                         self.log(
-                            invoker="doc_rag",
+                            invoker="Vector DB",
                             recipient="Custom Agent",
-                            event_type="document_vector_response",
+                            event_type="received_document_vector_response",
                             desc=f"Received document chunks from vector store",
                             payload=tool_result,
                             conv_id=conversation_id
@@ -547,10 +547,11 @@ class CustomAgent:
         self.log(
             invoker="Custom Agent",
             recipient="Web UI",
-            event_type="chat_response",
+            event_type="send_chat_response",
             desc=f"Agent response completed in {total_elapsed}ms",
             payload={
                 "conversation_id": conversation_id,
+                "user_query": message,
                 "response": final_answer,
                 "agent_type": "Custom Agent",
                 "model": model,
@@ -565,6 +566,7 @@ class CustomAgent:
 
         return {
             "conversation_id": conversation_id,
+            "user_query": message,
             "response": final_answer,
             "agent_type": "Custom Agent",
             "model": model,
