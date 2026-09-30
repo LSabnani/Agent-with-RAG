@@ -24,13 +24,13 @@ The system consists of 7 isolated Docker containers communicating across an inte
 
 ```
                               ┌────────────────────────────────────────┐
-                              │          Client Browser               │
+                              │          Client Browser                │
                               └──────────────────┬─────────────────────┘
                                                  │ HTTP / JSON
                                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Web UI Gateway (`web_ui`, Port 8000)                                                        │
-│ ├─ Chat & Knowledge Mgnt ├─ VectorDB Mgnt ├─ Telemetry ├─ Audit Logs ├─ Containers ├─ Auth │
+│ ├─ Chat & Knowledge Mgnt ├─ VectorDB Mgnt ├─ Telemetry ├─ Audit Logs ├─ Containers ├─ Auth  │
 └────────┬───────────────────────┬──────────────────────┬──────────────────────┬──────────────┘
          │                       │                      │                      │
          ▼                       ▼                      ▼                      ▼
