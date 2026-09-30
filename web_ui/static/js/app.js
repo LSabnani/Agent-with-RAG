@@ -375,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         model: chatModel.value,
         temperature: parseFloat(chatTemperature.value) || 0.7,
         max_tokens: parseInt(chatMaxTokens.value) || 2048,
-        max_turns: parseInt(chatMaxTurns.value) || 3,
+        max_turns: parseInt(chatMaxTurns.value) || 5,
         rag_chunks: parseInt(chatRagChunks.value) || 5,
         skill_mode: chatSkills.value,
         skill_threshold: parseFloat(chatSkillThreshold.value) || 0.2,
@@ -1889,21 +1889,55 @@ document.addEventListener('DOMContentLoaded', () => {
     subtabPasswords.classList.remove('active');
   };
 
-  // Users Table
+  // Users Table & Management
   const usersTbody = document.getElementById('usersTbody');
+  const selectAllUsers = document.getElementById('selectAllUsers');
+  const btnDeleteSelectedUsers = document.getElementById('btnDeleteSelectedUsers');
+  const btnOpenCreateUserModal = document.getElementById('btnOpenCreateUserModal');
+  const createUserModal = document.getElementById('createUserModal');
+  const btnCloseCreateUserModalX = document.getElementById('btnCloseCreateUserModalX');
+  const btnCancelCreateUser = document.getElementById('btnCancelCreateUser');
+  const btnConfirmCreateUser = document.getElementById('btnConfirmCreateUser');
+  const createUserNameInput = document.getElementById('createUserNameInput');
+  const createUserPasswordInput = document.getElementById('createUserPasswordInput');
+  const createUserAlertMsg = document.getElementById('createUserAlertMsg');
+
+  let selectedUserIds = new Set();
+  let currentLoadedUsers = [];
+
   async function loadUsers() {
     try {
       const resp = await fetch('/api/users');
       const data = await resp.json();
       usersTbody.innerHTML = '';
-      (data.users || []).forEach(u => {
+      currentLoadedUsers = data.users || [];
+      const isAdmin = (currentUser && currentUser.role === 'Admin');
+
+      if (btnOpenCreateUserModal) {
+        btnOpenCreateUserModal.disabled = !isAdmin;
+      }
+
+      if (currentLoadedUsers.length === 0) {
+        usersTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No user accounts found.</td></tr>';
+        if (selectAllUsers) selectAllUsers.checked = false;
+        if (btnDeleteSelectedUsers) btnDeleteSelectedUsers.disabled = true;
+        return;
+      }
+
+      currentLoadedUsers.forEach(u => {
         const tr = document.createElement('tr');
         const isLocked = (u.status === 'Locked');
+        const isChecked = selectedUserIds.has(u.id);
+        if (isChecked) tr.classList.add('selected-row');
+
         tr.innerHTML = `
-          <td><strong>${escapeHtml(u.email)}</strong></td>
+          <td>
+            <input type="checkbox" class="user-select-chk" data-id="${u.id}" ${isChecked ? 'checked' : ''} ${!isAdmin ? 'disabled' : ''} style="margin-right: 8px; vertical-align: middle;">
+            <strong>${escapeHtml(u.email)}</strong>
+          </td>
           <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
           <td>
-            <select class="input-text" style="padding:2px 8px; font-size:0.8rem;" onchange="updateUserRole(${u.id}, this.value)">
+            <select class="input-text" style="padding:2px 8px; font-size:0.8rem;" ${!isAdmin ? 'disabled' : ''} onchange="updateUserRole(${u.id}, this.value)">
               <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>Admin</option>
               <option value="Editor" ${u.role === 'Editor' ? 'selected' : ''}>Editor</option>
               <option value="User" ${u.role === 'User' ? 'selected' : ''}>User</option>
@@ -1911,106 +1945,236 @@ document.addEventListener('DOMContentLoaded', () => {
           </td>
           <td>
             <span class="badge ${isLocked ? 'badge-locked' : 'badge-active'}">${u.status || 'Active'}</span>
-            <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem; margin-left:4px;" onclick="toggleUserStatus(${u.id}, '${isLocked ? 'Active' : 'Locked'}')">
+            <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem; margin-left:4px;" ${!isAdmin ? 'disabled' : ''} onclick="toggleUserStatus(${u.id}, '${isLocked ? 'Active' : 'Locked'}')">
               ${isLocked ? 'Unlock' : 'Lock'}
             </button>
           </td>
           <td>
-            <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="resetUserPassword(${u.id})">Reset Pass</button>
-            <button class="btn-danger" style="padding:2px 8px; font-size:0.75rem;" onclick="deleteUser(${u.id})">Delete</button>
+            <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" ${!isAdmin ? 'disabled' : ''} onclick="resetUserPassword(${u.id})">Reset Pass</button>
           </td>
         `;
         usersTbody.appendChild(tr);
       });
-    } catch (e) {}
+
+      // Bind row checkboxes
+      usersTbody.querySelectorAll('.user-select-chk').forEach(chk => {
+        chk.addEventListener('change', () => {
+          const uid = parseInt(chk.getAttribute('data-id'));
+          const tr = chk.closest('tr');
+          if (chk.checked) {
+            selectedUserIds.add(uid);
+            if (tr) tr.classList.add('selected-row');
+          } else {
+            selectedUserIds.delete(uid);
+            if (tr) tr.classList.remove('selected-row');
+          }
+          updateBulkDeleteUsersBtnState();
+        });
+      });
+
+      updateBulkDeleteUsersBtnState();
+    } catch (e) {
+      console.error('Failed to load users:', e);
+    }
+  }
+
+  function updateBulkDeleteUsersBtnState() {
+    const isAdmin = (currentUser && currentUser.role === 'Admin');
+    if (btnDeleteSelectedUsers) {
+      btnDeleteSelectedUsers.disabled = (selectedUserIds.size === 0 || !isAdmin);
+    }
+    if (selectAllUsers) {
+      selectAllUsers.checked = (currentLoadedUsers.length > 0 && selectedUserIds.size === currentLoadedUsers.length);
+      selectAllUsers.disabled = !isAdmin;
+    }
+  }
+
+  if (selectAllUsers) {
+    selectAllUsers.addEventListener('change', () => {
+      const isAdmin = (currentUser && currentUser.role === 'Admin');
+      if (!isAdmin) return;
+      const isChecked = selectAllUsers.checked;
+      selectedUserIds.clear();
+      if (isChecked) {
+        currentLoadedUsers.forEach(u => selectedUserIds.add(u.id));
+      }
+      usersTbody.querySelectorAll('.user-select-chk').forEach(chk => {
+        chk.checked = isChecked;
+        const tr = chk.closest('tr');
+        if (tr) {
+          if (isChecked) tr.classList.add('selected-row');
+          else tr.classList.remove('selected-row');
+        }
+      });
+      updateBulkDeleteUsersBtnState();
+    });
+  }
+
+  if (btnDeleteSelectedUsers) {
+    btnDeleteSelectedUsers.onclick = async () => {
+      const isAdmin = (currentUser && currentUser.role === 'Admin');
+      if (!isAdmin) {
+        alert('Only users with Admin access can delete user accounts.');
+        return;
+      }
+      if (selectedUserIds.size === 0) return;
+      if (!confirm(`Are you sure you want to delete ${selectedUserIds.size} selected user(s)?`)) return;
+
+      try {
+        const resp = await fetch('/api/users/bulk_delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_ids: Array.from(selectedUserIds) })
+        });
+        const res = await resp.json();
+        if (resp.ok) {
+          selectedUserIds.clear();
+          if (selectAllUsers) selectAllUsers.checked = false;
+          loadUsers();
+          loadUserActivity();
+        } else {
+          alert(res.error || 'Failed to delete users');
+        }
+      } catch (e) {
+        alert('Error deleting users: ' + e);
+      }
+    };
   }
 
   window.toggleUserStatus = async (uid, newStatus) => {
-    await fetch(`/api/users/${uid}/status`, {
+    const isAdmin = (currentUser && currentUser.role === 'Admin');
+    if (!isAdmin) {
+      alert('Only users with Admin access can modify user accounts.');
+      return;
+    }
+    const resp = await fetch(`/api/users/${uid}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      alert(err.error || 'Failed to update user status');
+    }
     loadUsers();
     loadUserActivity();
   };
 
   window.updateUserRole = async (uid, newRole) => {
-    await fetch(`/api/users/${uid}/role`, {
+    const isAdmin = (currentUser && currentUser.role === 'Admin');
+    if (!isAdmin) {
+      alert('Only users with Admin access can modify user accounts.');
+      return;
+    }
+    const resp = await fetch(`/api/users/${uid}/role`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: newRole })
     });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      alert(err.error || 'Failed to update user role');
+    }
     loadUsers();
   };
 
   window.resetUserPassword = async (uid) => {
+    const isAdmin = (currentUser && currentUser.role === 'Admin');
+    if (!isAdmin) {
+      alert('Only users with Admin access can modify user accounts.');
+      return;
+    }
     const p = prompt('Enter new password for this user:', 'admin123');
     if (!p) return;
-    await fetch(`/api/users/${uid}/reset_password`, {
+    const resp = await fetch(`/api/users/${uid}/reset_password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: p })
     });
-    alert('Password updated.');
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      alert(err.error || 'Failed to reset password');
+    } else {
+      alert('Password updated.');
+    }
     loadUserActivity();
   };
 
-  window.deleteUser = async (uid) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
-    await fetch(`/api/users/${uid}`, { method: 'DELETE' });
-    loadUsers();
-  };
-
-  // Generate API key popup in Passwords tab
-  const btnOpenUserKeyModal = document.getElementById('btnOpenUserKeyModal');
-  const userKeyModal = document.getElementById('userKeyModal');
-  const btnCloseUserKeyModalX = document.getElementById('btnCloseUserKeyModalX');
-  const btnCancelUserKey = document.getElementById('btnCancelUserKey');
-  const btnProceedUserKey = document.getElementById('btnProceedUserKey');
-  const userKeyUsername = document.getElementById('userKeyUsername');
-  const userKeyContainerSelect = document.getElementById('userKeyContainerSelect');
-
-  if (btnOpenUserKeyModal) {
-    btnOpenUserKeyModal.onclick = () => {
-      userKeyUsername.value = '';
-      userKeyModal.classList.remove('hidden');
-      userKeyUsername.focus();
-    };
-  }
-  if (btnCloseUserKeyModalX) btnCloseUserKeyModalX.onclick = () => userKeyModal.classList.add('hidden');
-  if (btnCancelUserKey) btnCancelUserKey.onclick = () => userKeyModal.classList.add('hidden');
-
-  if (btnProceedUserKey) {
-    btnProceedUserKey.onclick = async () => {
-      const u = userKeyUsername.value.trim();
-      const container = userKeyContainerSelect.value;
-      if (!u) {
-        alert('Please enter a username for the API key');
+  // Create New User Popup Window
+  if (btnOpenCreateUserModal) {
+    btnOpenCreateUserModal.onclick = () => {
+      const isAdmin = (currentUser && currentUser.role === 'Admin');
+      if (!isAdmin) {
+        alert('Only users with Admin access can create user accounts.');
         return;
       }
+      createUserNameInput.value = '';
+      createUserPasswordInput.value = '';
+      if (createUserAlertMsg) {
+        createUserAlertMsg.textContent = '';
+        createUserAlertMsg.classList.add('hidden');
+      }
+      createUserModal.classList.remove('hidden');
+      createUserNameInput.focus();
+    };
+  }
+
+  if (btnCloseCreateUserModalX) {
+    btnCloseCreateUserModalX.onclick = () => createUserModal.classList.add('hidden');
+  }
+
+  if (btnCancelCreateUser) {
+    btnCancelCreateUser.onclick = () => createUserModal.classList.add('hidden');
+  }
+
+  if (btnConfirmCreateUser) {
+    btnConfirmCreateUser.onclick = async () => {
+      const u = createUserNameInput.value.trim();
+      const p = createUserPasswordInput.value;
+
+      if (!u || !p) {
+        if (createUserAlertMsg) {
+          createUserAlertMsg.textContent = 'Please enter both username and password.';
+          createUserAlertMsg.classList.remove('hidden');
+        } else {
+          alert('Please enter both username and password.');
+        }
+        return;
+      }
+
       try {
-        const resp = await fetch('/api/keys', {
+        const resp = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            key_name: `${u}_key`,
-            creator_email: currentUser ? currentUser.email : 'admin',
-            containers: [container],
-            access_levels: ['Admin']
+            username: u,
+            password: p,
+            role: 'User',
+            status: 'Active'
           })
         });
         const res = await resp.json();
-        userKeyModal.classList.add('hidden');
-        if (resp.ok && res.api_key) {
-          displayGeneratedKeyInput.value = res.api_key;
-          showKeyModal.classList.remove('hidden');
-          loadApiKeys();
+        if (resp.ok && res.status === 'success') {
+          createUserModal.classList.add('hidden');
+          createUserNameInput.value = '';
+          createUserPasswordInput.value = '';
+          loadUsers();
+          loadUserActivity();
         } else {
-          alert(res.error || 'Failed to generate key');
+          if (createUserAlertMsg) {
+            createUserAlertMsg.textContent = res.error || 'Failed to create user.';
+            createUserAlertMsg.classList.remove('hidden');
+          } else {
+            alert(res.error || 'Failed to create user.');
+          }
         }
       } catch (e) {
-        alert('Error generating key: ' + e);
+        if (createUserAlertMsg) {
+          createUserAlertMsg.textContent = 'Error creating user: ' + e;
+          createUserAlertMsg.classList.remove('hidden');
+        } else {
+          alert('Error creating user: ' + e);
+        }
       }
     };
   }
@@ -2168,6 +2332,57 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   btnCloseShowKeyModal.onclick = () => showKeyModal.classList.add('hidden');
 
+  // API Keys Table & Activities
+  const apiKeyActivitiesTbody = document.getElementById('apiKeyActivitiesTbody');
+  const selectedApiKeyNameText = document.getElementById('selectedApiKeyNameText');
+  let activeSelectedKeyId = null;
+
+  async function loadApiKeyActivities(k) {
+    if (!apiKeyActivitiesTbody) return;
+    apiKeyActivitiesTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Loading activities...</td></tr>';
+    try {
+      const resp = await fetch(`/api/keys/${k.id}/activities?key_prefix=${encodeURIComponent(k.key_prefix || '')}`);
+      const data = await resp.json();
+      const activities = data.activities || [];
+      apiKeyActivitiesTbody.innerHTML = '';
+      if (activities.length === 0) {
+        apiKeyActivitiesTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No activity records found for this API key.</td></tr>';
+        return;
+      }
+      activities.forEach(act => {
+        const actTr = document.createElement('tr');
+        const isSuccess = (act.status || '').toLowerCase().includes('success');
+        const isDenied = (act.status || '').toLowerCase().includes('denied') || (act.status || '').toLowerCase().includes('expired') || (act.status || '').toLowerCase().includes('failure');
+        const badgeClass = isSuccess ? 'badge-user' : (isDenied ? 'badge-admin' : 'badge-editor');
+
+        actTr.innerHTML = `
+          <td>${act.created_at ? new Date(act.created_at).toLocaleString() : '-'}</td>
+          <td><strong>${escapeHtml(act.key_name || k.key_name)}</strong></td>
+          <td><code>${escapeHtml(act.key_prefix || k.key_prefix || '-')}</code></td>
+          <td>${escapeHtml(act.container_name || '-')}</td>
+          <td>${escapeHtml(act.access_level || '-')}</td>
+          <td><span class="badge badge-editor">${escapeHtml(act.action_type || 'Activity')}</span></td>
+          <td><span class="badge ${badgeClass}">${escapeHtml(act.status || 'Success')}</span></td>
+          <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(act.details || '-')}">${escapeHtml(act.details || '-')}</td>
+        `;
+        apiKeyActivitiesTbody.appendChild(actTr);
+      });
+    } catch (e) {
+      apiKeyActivitiesTbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading activities.</td></tr>';
+    }
+  }
+
+  function selectApiKeyRow(k, tr) {
+    if (!tr) return;
+    activeSelectedKeyId = k.id;
+    apiKeysTbody.querySelectorAll('tr').forEach(r => r.classList.remove('active-key-row'));
+    tr.classList.add('active-key-row');
+    if (selectedApiKeyNameText) {
+      selectedApiKeyNameText.textContent = `${k.key_name} (${k.key_prefix})`;
+    }
+    loadApiKeyActivities(k);
+  }
+
   async function loadApiKeys() {
     try {
       const resp = await fetch('/api/keys');
@@ -2179,13 +2394,20 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKeysTbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No API keys found.</td></tr>';
         if (selectAllApiKeys) selectAllApiKeys.checked = false;
         if (btnDeleteSelectedKeys) btnDeleteSelectedKeys.disabled = true;
+        if (apiKeyActivitiesTbody) {
+          apiKeyActivitiesTbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No API keys configured.</td></tr>';
+        }
+        if (selectedApiKeyNameText) selectedApiKeyNameText.textContent = 'None Selected';
         return;
       }
 
       currentLoadedKeys.forEach(k => {
         const isChecked = selectedKeyIds.has(k.id);
         const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
         if (isChecked) tr.classList.add('selected-row');
+        if (activeSelectedKeyId === k.id) tr.classList.add('active-key-row');
+
         tr.innerHTML = `
           <td style="text-align:center;">
             <input type="checkbox" class="api-key-select-chk" data-id="${k.id}" ${isChecked ? 'checked' : ''}>
@@ -2199,15 +2421,32 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${(k.access_levels || []).join(', ') || '-'}</td>
           <td><span class="badge ${k.status === 'active' ? 'badge-user' : (k.status === 'delete' ? 'badge-admin' : 'badge-inactive')}">${escapeHtml(k.status)}</span></td>
           <td>
-            <button class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick='openEditKeyModal(${JSON.stringify(k)})'>Edit</button>
+            <button class="btn-secondary btn-edit-key" style="padding:2px 8px; font-size:0.75rem;">Edit</button>
           </td>
         `;
+
+        // Click row to highlight and load activities
+        tr.addEventListener('click', (e) => {
+          if (e.target.closest('input[type="checkbox"]') || e.target.closest('.btn-edit-key')) return;
+          selectApiKeyRow(k, tr);
+        });
+
+        // Edit button click
+        const editBtn = tr.querySelector('.btn-edit-key');
+        if (editBtn) {
+          editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditKeyModal(k);
+          });
+        }
+
         apiKeysTbody.appendChild(tr);
       });
 
       // Bind row checkboxes
       apiKeysTbody.querySelectorAll('.api-key-select-chk').forEach(chk => {
-        chk.addEventListener('change', () => {
+        chk.addEventListener('change', (e) => {
+          e.stopPropagation();
           const id = parseInt(chk.getAttribute('data-id'));
           const tr = chk.closest('tr');
           if (chk.checked) {
@@ -2222,6 +2461,16 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       updateBulkDeleteBtnState();
+
+      // If there's an active key selected, reload its activities
+      if (activeSelectedKeyId) {
+        const found = currentLoadedKeys.find(k => k.id === activeSelectedKeyId);
+        if (found) {
+          loadApiKeyActivities(found);
+        } else {
+          activeSelectedKeyId = null;
+        }
+      }
     } catch (e) {
       console.error('Failed to load API keys:', e);
     }

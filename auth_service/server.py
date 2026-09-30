@@ -102,6 +102,39 @@ def init_db():
     );
     """)
 
+    # API key activity logs table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS api_key_activity_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key_id INTEGER,
+        key_name TEXT NOT NULL,
+        key_prefix TEXT,
+        container_name TEXT,
+        access_level TEXT,
+        action_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        details TEXT,
+        ip_address TEXT,
+        created_at TEXT NOT NULL
+    );
+    """)
+
+    conn.commit()
+
+    # Seed initial activity logs for pre-existing keys if none exist
+    cursor.execute("SELECT id, key_name, key_prefix, containers, access_levels, created_at FROM api_keys")
+    existing_keys = cursor.fetchall()
+    for ek in existing_keys:
+        cursor.execute("SELECT id FROM api_key_activity_logs WHERE key_id = ?", (ek["id"],))
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT INTO api_key_activity_logs (key_id, key_name, key_prefix, container_name, access_level, action_type, status, details, ip_address, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                ek["id"], ek["key_name"], ek["key_prefix"],
+                ek["containers"], ek["access_levels"],
+                "Key Generation", "Success", "Configured Container API Key generated", "127.0.0.1", ek["created_at"]
+            ))
     conn.commit()
 
     # Seed default Admin account if not present
@@ -122,6 +155,22 @@ def init_db():
     conn.close()
 
 init_db()
+
+def record_api_key_activity(key_id, key_name, key_prefix, container_name, access_level, action_type, status, details="", ip_address="127.0.0.1", created_at=None):
+    if not created_at:
+        created_at = datetime.now(timezone.utc).isoformat()
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO api_key_activity_logs (key_id, key_name, key_prefix, container_name, access_level, action_type, status, details, ip_address, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (key_id, key_name, key_prefix, str(container_name or ""), str(access_level or ""), action_type, status, str(details or ""), ip_address, created_at))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error logging api key activity: {e}")
+
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -334,6 +383,84 @@ def delete_user(user_id):
     conn.close()
     return jsonify({"status": "success", "message": f"Deleted user {row['email']}"})
 
+@app.route("/api/users", methods=["POST"])
+def admin_create_user():
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or data.get("email") or "").strip()
+    password = data.get("password") or ""
+    role = data.get("role", "User")
+    status = data.get("status", "Active")
+    if role not in ["Admin", "Editor", "User"]:
+        role = "User"
+    if status not in ["Active", "Locked"]:
+        status = "Active"
+
+    if not username or not password:
+        return jsonify({"status": "failed", "error": "Username and password are required"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE email = ?", (username,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({"status": "failed", "error": "User already exists"}), 400
+
+    hashed = generate_password_hash(password)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cursor.execute(
+        "INSERT INTO users (email, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?)",
+        (username, hashed, role, status, now_iso)
+    )
+    user_id = cursor.lastrowid
+    cursor.execute(
+        "INSERT INTO user_activity_logs (user_email, request_type, status, ip_address, created_at) VALUES (?, ?, ?, ?, ?)",
+        (username, "Create User", "Success", request.remote_addr, now_iso)
+    )
+    conn.commit()
+    conn.close()
+
+    log_to_logging_container(
+        invoker="admin",
+        recipient="auth_service",
+        event_type="user_creation",
+        short_desc=f"Admin created user {username}",
+        payload={"username": username, "role": role, "status": status}
+    )
+
+    return jsonify({"status": "success", "message": f"User {username} created successfully", "user_id": user_id}), 201
+
+@app.route("/api/users/bulk_delete", methods=["POST"])
+def bulk_delete_users():
+    data = request.get_json(silent=True) or {}
+    user_ids = data.get("user_ids", [])
+    if not user_ids:
+        return jsonify({"error": "No user IDs provided"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    placeholders = ",".join("?" for _ in user_ids)
+    cursor.execute(f"SELECT id, email FROM users WHERE id IN ({placeholders})", user_ids)
+    users_to_delete = cursor.fetchall()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for u in users_to_delete:
+        cursor.execute(
+            "INSERT INTO user_activity_logs (user_email, request_type, status, ip_address, created_at) VALUES (?, ?, ?, ?, ?)",
+            (u["email"], "Delete User", "Success", request.remote_addr, now_iso)
+        )
+    cursor.execute(f"DELETE FROM users WHERE id IN ({placeholders})", user_ids)
+    conn.commit()
+    conn.close()
+
+    log_to_logging_container(
+        invoker="admin",
+        recipient="auth_service",
+        event_type="user_bulk_deletion",
+        short_desc=f"Deleted {len(user_ids)} users",
+        payload={"user_ids": user_ids, "deleted_count": len(user_ids)}
+    )
+
+    return jsonify({"status": "success", "deleted_count": len(user_ids)})
+
 @app.route("/api/users/activity_logs", methods=["GET"])
 def get_user_activity_logs():
     conn = get_db()
@@ -400,6 +527,18 @@ def generate_key():
     conn.commit()
     conn.close()
 
+    record_api_key_activity(
+        key_id=key_id,
+        key_name=key_name,
+        key_prefix=key_prefix,
+        container_name=",".join(containers),
+        access_level=",".join(access_levels),
+        action_type="Key Generation",
+        status="Success",
+        details=f"Containers: {', '.join(containers) if containers else 'None'}; Access: {', '.join(access_levels) if access_levels else 'None'}",
+        ip_address=request.remote_addr or "127.0.0.1"
+    )
+
     log_to_logging_container(
         invoker=creator,
         recipient="auth_service",
@@ -428,6 +567,11 @@ def update_key(key_id):
 
     conn = get_db()
     cursor = conn.cursor()
+    cursor.execute("SELECT * FROM api_keys WHERE id = ?", (key_id,))
+    existing_key = cursor.fetchone()
+    if not existing_key:
+        conn.close()
+        return jsonify({"error": "API key not found"}), 404
 
     updates = []
     params = []
@@ -456,15 +600,46 @@ def update_key(key_id):
     conn.commit()
     conn.close()
 
+    record_api_key_activity(
+        key_id=key_id,
+        key_name=key_name or existing_key["key_name"],
+        key_prefix=existing_key["key_prefix"],
+        container_name=",".join(containers) if containers is not None else existing_key["containers"],
+        access_level=",".join(access_levels) if access_levels is not None else existing_key["access_levels"],
+        action_type="Key Updated",
+        status="Success",
+        details=f"Updated: {', '.join(updates)}",
+        ip_address=request.remote_addr or "127.0.0.1"
+    )
+
     return jsonify({"status": "success", "key_id": key_id})
 
 @app.route("/api/keys/<int:key_id>", methods=["DELETE"])
 def delete_key(key_id):
     conn = get_db()
     cursor = conn.cursor()
+    cursor.execute("SELECT * FROM api_keys WHERE id = ?", (key_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "API key not found"}), 404
+
     cursor.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
     conn.commit()
     conn.close()
+
+    record_api_key_activity(
+        key_id=key_id,
+        key_name=row["key_name"],
+        key_prefix=row["key_prefix"],
+        container_name=row["containers"],
+        access_level=row["access_levels"],
+        action_type="Key Deleted",
+        status="Success",
+        details="API key deleted",
+        ip_address=request.remote_addr or "127.0.0.1"
+    )
+
     return jsonify({"status": "success", "message": "API key deleted"})
 
 @app.route("/api/keys/bulk_delete", methods=["POST"])
@@ -476,10 +651,70 @@ def bulk_delete_keys():
     conn = get_db()
     cursor = conn.cursor()
     placeholders = ",".join("?" for _ in key_ids)
+    cursor.execute(f"SELECT * FROM api_keys WHERE id IN ({placeholders})", key_ids)
+    keys_to_delete = cursor.fetchall()
+    for k in keys_to_delete:
+        record_api_key_activity(
+            key_id=k["id"],
+            key_name=k["key_name"],
+            key_prefix=k["key_prefix"],
+            container_name=k["containers"],
+            access_level=k["access_levels"],
+            action_type="Key Deleted",
+            status="Success",
+            details="Bulk deleted API key",
+            ip_address=request.remote_addr or "127.0.0.1"
+        )
     cursor.execute(f"DELETE FROM api_keys WHERE id IN ({placeholders})", key_ids)
     conn.commit()
     conn.close()
     return jsonify({"status": "success", "deleted_count": len(key_ids)})
+
+@app.route("/api/keys/<int:key_id>/activities", methods=["GET"])
+def get_key_activities_by_id(key_id):
+    key_prefix = request.args.get("key_prefix")
+    conn = get_db()
+    cursor = conn.cursor()
+    if key_prefix:
+        cursor.execute(
+            "SELECT * FROM api_key_activity_logs WHERE key_id = ? AND key_prefix = ? ORDER BY id DESC",
+            (key_id, key_prefix)
+        )
+    else:
+        cursor.execute(
+            "SELECT * FROM api_key_activity_logs WHERE key_id = ? ORDER BY id DESC",
+            (key_id,)
+        )
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return jsonify({"status": "success", "key_id": key_id, "activities": rows})
+
+@app.route("/api/keys/activities", methods=["GET"])
+def get_all_key_activities():
+    key_name = request.args.get("key_name")
+    key_prefix = request.args.get("key_prefix")
+    conn = get_db()
+    cursor = conn.cursor()
+    if key_name and key_prefix:
+        cursor.execute(
+            "SELECT * FROM api_key_activity_logs WHERE key_name = ? AND key_prefix = ? ORDER BY id DESC",
+            (key_name, key_prefix)
+        )
+    elif key_prefix:
+        cursor.execute(
+            "SELECT * FROM api_key_activity_logs WHERE key_prefix = ? ORDER BY id DESC",
+            (key_prefix,)
+        )
+    elif key_name:
+        cursor.execute(
+            "SELECT * FROM api_key_activity_logs WHERE key_name = ? ORDER BY id DESC",
+            (key_name,)
+        )
+    else:
+        cursor.execute("SELECT * FROM api_key_activity_logs ORDER BY id DESC LIMIT 200")
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return jsonify({"status": "success", "activities": rows})
 
 @app.route("/api/auth/validate_key", methods=["POST"])
 def validate_key():
@@ -531,6 +766,17 @@ def validate_key():
     # Check expiration
     expires_at = row["expires_at"]
     if expires_at and datetime.fromisoformat(expires_at.replace("Z", "+00:00")) < datetime.now(timezone.utc):
+        record_api_key_activity(
+            key_id=row["id"],
+            key_name=row["key_name"],
+            key_prefix=row["key_prefix"],
+            container_name=target_container,
+            access_level=required_level,
+            action_type=req_type or "API Key Access",
+            status="Expired",
+            details=f"Key expired on {expires_at}",
+            ip_address=client_ip
+        )
         return jsonify({"valid": False, "error": "API key expired"}), 403
 
     containers = json.loads(row["containers"]) if row["containers"] else []
@@ -566,6 +812,18 @@ def validate_key():
         "containers": containers
     } if allowed else {"valid": False, "error": f"Permission denied for container {target_container}"}
 
+    record_api_key_activity(
+        key_id=row["id"],
+        key_name=row["key_name"],
+        key_prefix=row["key_prefix"],
+        container_name=target_container,
+        access_level=granted_level if allowed else required_level,
+        action_type=req_type or "API Key Access",
+        status="Success" if allowed else "Permission Denied",
+        details=f"Target: {target_container}, Invoker: {invoker_container}",
+        ip_address=client_ip
+    )
+
     log_to_logging_container(
         invoker=invoker_container or row["key_name"],
         recipient=target_container or "auth_service",
@@ -592,3 +850,4 @@ def validate_key():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
     app.run(host="0.0.0.0", port=port)
+

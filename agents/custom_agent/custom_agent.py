@@ -196,13 +196,13 @@ class CustomAgent:
         return f"Synthesized answer based on available context and tools:\n\n{prompt[-300:] if len(prompt) > 300 else prompt}"
 
     def run(self, message, conversation_id, model="gemma-4-26b-a4b-it", temperature=0.7, max_tokens=2048,
-            max_turns=3, skill_selector="Vector Store Selects", skill_threshold=0.2, doc_threshold=0.3,
+            max_turns=5, skill_selector="Vector Store Selects", skill_threshold=0.2, doc_threshold=0.3,
             max_chunks=5, custom_endpoint=None, api_key=None, configured_keys=None, **kwargs):
         
         configured_keys = configured_keys or {}
         agent_start = time.time()
         steps = []
-        max_turns = max(1, min(int(max_turns or 3), 10))
+        max_turns = max(1, min(int(max_turns or 5), 10))
 
         # Initial Agent Invocaton Log
         self.log(

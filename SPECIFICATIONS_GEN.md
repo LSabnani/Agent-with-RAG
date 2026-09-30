@@ -161,7 +161,7 @@ The page layout uses `.split-cards-grid` with `grid-template-columns: 1fr 1fr; w
 ┌───────────────────────────────────────────────┬───────────────────────────────────────────────┐
 │ Left Card: "Chat with the Agent" (50% Width)  │ Right Card: "Context Evidence" (50% Width)    │
 ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
-│ Header: Agent Selector | Max Turns (Default 3)│ Header: Max RAG Chunks (2,3,5,7,10)|Doc Thresh│
+│ Header: Agent Selector | Max Turns (Default 5)│ Header: Max RAG Chunks (2,3,5,7,10)|Doc Thresh│
 │                                               │ Row 2: Skill Selector | Skill Threshold (0.2) │
 │ Chat Messages Scroll Stream                   │ Evidence Chunks & Matched Skills List         │
 │ - User Prompts & Agent Syntheses              │ - Similarity Badges & Chunk Text              │
@@ -174,7 +174,7 @@ The page layout uses `.split-cards-grid` with `grid-template-columns: 1fr 1fr; w
 #### 2.4.3 Left Card: "Chat with the Agent" (50% Window Width)
 - **Header Controls**:
   - `Agent` dropdown: Choices are `Custom Agent` (default) and `Google ADK Agent`.
-  - `Max Turns` input: Numeric input (Default: `3`, Min: `1`, Max: `10`). Limits autonomous agent reasoning loops.
+  - `Max Turns` input: Numeric input (Default: `5`, Min: `1`, Max: `10`). Limits autonomous agent reasoning loops.
 - **Body Content**:
   - Scrollable conversation history container (`#chatMessages`).
   - Welcome banner with 4 quick prompt chips:
@@ -325,25 +325,37 @@ Direct container health inspection and inter-container key configuration via Doc
 Security administration interface with two sub-tabs:
 
 #### 2.9.1 Sub-Tab A: "User Accounts"
-- User accounts table:
-  - Columns: `Username / Email`, `Role` (`Admin`, `Editor`, `User`), `Status` (`Active`, `Locked`), `Created Date`, `Actions`.
-  - Actions: Toggle Status (`Lock` / `Unlock`), Change Role, Reset Password, Delete User.
-- **Add New User** button: Opens modal to create account with initial status `Active` or `Locked`.
-- User Activity Log table: Historical audit log of logins, logouts, password resets, and account updates.
+- **Access Control**: Only users with `Admin` access can make any changes to User accounts (role updates, lock/unlock status toggles, password resets, user creation, and user deletion).
+- **Header Action Controls**:
+  - **Create New User Button**: Replaces the previous "Generate New API Key" in the User Accounts Directory header.
+    - When clicked, opens a popup window asking the admin to enter the user name and password.
+    - Dialog includes **Cancel** and **Create** buttons.
+    - Clicking **Cancel** closes the popup window without taking action.
+    - Clicking **Create** creates the user account ONLY if both user name and password are entered.
+  - **Delete Users Button**: Placed next to "Create New User". Enabled only if one or more checkboxes next to user names are checked; otherwise disabled.
+- **User Accounts Directory Table**:
+  - Columns:
+    - `[ ] User Name`: Includes a selection checkbox in each user row, with a "Check All" checkbox at the column header to select/deselect all rows.
+    - `Created Date`: Timestamp when account was registered.
+    - `Role`: Dropdown to change role (`Admin`, `Editor`, `User`).
+    - `Status`: Badge (`Active`, `Locked`) with Lock/Unlock action toggle.
+    - `Actions`: Contains "Reset Pass" button. The individual Delete button in the Actions column is removed.
+- **User Activity Log Table**: Historical audit log of logins, logouts, password resets, and account updates.
 
 #### 2.9.2 Sub-Tab B: "API Keys"
-- Table Header Controls:
-  - **Select All Checkbox**: Selects or deselects all visible API key rows.
-  - **Delete Selected API Keys Button**:
-    - Active when one or more keys are checked.
-    - Opens confirmation modal displaying the list of all selected key names and prefixes.
-    - Modal layout: **Cancel** button at bottom-left, **Delete** button at bottom-right.
-  - **Generate New API Key Button**:
-    - Opens creation modal.
-    - Fields: Key Name (text), Container Scope checkboxes (`tools`, `doc_rag`, `agents`, `logging`), Access Level dropdown (`Read`, `Write`, `Admin`), Expiration Date picker (defaults to 1 year from creation).
-    - Submitting generates a cryptographically secure key formatted as `key-<16 hex chars>` and adds it to SQLite storage.
-- API Keys Table:
-  - Columns: `[ ]` (Checkbox), `Key Name`, `API Key` (masked as `key-xxxx...xxxx`), `Container Scopes`, `Access Level`, `Created Date`, `Expires At`, `Status`, `Actions` (`Edit`, `Delete`).
+- **Table 1: Configured Container API Keys**:
+  - Header Controls:
+    - **Select All Checkbox**: Selects or deselects all visible API key rows.
+    - **Delete Selected API Keys Button**: Active when one or more keys are checked. Opens confirmation modal.
+    - **Generate New API Key Button**: Opens creation modal with Key Name, container selections, access level, and expiration date.
+  - Table Columns: `[ ]` (Checkbox), `Key Name`, `API Key Prefix`, `Created By`, `Generated Date`, `Expiry Date`, `Containers`, `Access Levels`, `Status`, `Actions` (`Edit`).
+  - **Row Selection & Highlighting**: When one of the rows in "Configured Container API Keys" is clicked:
+    - Highlights the clicked row with an active outline and accent border (`.active-key-row`).
+    - Displays all activities strictly related to that selected API key in the second table below called **"API Key Activities"**. Queries are scoped strictly to the selected key's unique ID and prefix so activities from other keys, even with identical names, are not shown.
+- **Table 2: API Key Activities**:
+  - Displayed directly below the Configured Container API Keys card.
+  - Columns: `Local Date / Time`, `Key Name`, `Key Prefix`, `Container`, `Access Level`, `Action`, `Status`, `Details`.
+  - Automatically queries and displays all lifecycle events strictly for the selected key (creation, updates, inter-container validation requests, expirations, and deletions) by key ID and prefix.
 
 ---
 
@@ -353,8 +365,9 @@ Security administration interface with two sub-tabs:
 
 #### 3.1.1 Database Schema (SQLite: `auth.db`)
 - `users`: `id INTEGER PRIMARY KEY`, `email TEXT UNIQUE`, `password_hash TEXT`, `role TEXT DEFAULT 'User'`, `status TEXT DEFAULT 'Active'`, `created_at TEXT`.
-- `api_keys`: `id INTEGER PRIMARY KEY`, `key_name TEXT`, `api_key TEXT UNIQUE`, `creator_email TEXT`, `containers TEXT` (JSON array), `access_levels TEXT` (JSON array), `status TEXT DEFAULT 'Active'`, `created_at TEXT`, `expires_at TEXT`.
-- `activity_logs`: `id INTEGER PRIMARY KEY`, `timestamp TEXT`, `username TEXT`, `action TEXT`, `ip_address TEXT`, `details TEXT`.
+- `api_keys`: `id INTEGER PRIMARY KEY`, `key_name TEXT`, `key_hash TEXT UNIQUE`, `key_prefix TEXT`, `creator_email TEXT`, `containers TEXT` (JSON array), `access_levels TEXT` (JSON array), `status TEXT DEFAULT 'active'`, `created_at TEXT`, `expires_at TEXT`.
+- `user_activity_logs`: `id INTEGER PRIMARY KEY`, `user_email TEXT`, `request_type TEXT`, `status TEXT`, `ip_address TEXT`, `created_at TEXT`.
+- `api_key_activity_logs`: `id INTEGER PRIMARY KEY`, `key_id INTEGER`, `key_name TEXT`, `key_prefix TEXT`, `container_name TEXT`, `access_level TEXT`, `action_type TEXT`, `status TEXT`, `details TEXT`, `ip_address TEXT`, `created_at TEXT`.
 
 #### 3.1.2 Endpoints Contract
 - `GET /health` -> `{"status": "ok", "service": "auth_service", "port": 8001}`
@@ -369,14 +382,18 @@ Security administration interface with two sub-tabs:
   - Body: `{"api_key": "<key>", "container": "<target_container>", "access_level": "<read|write|admin>", "invoker": "<source_container>"}`
   - Returns `200`: `{"valid": true|false, "key_name": "...", "access_level": "...", "containers": [...]}`
 - `GET /api/users` -> Lists all users. Admin only.
-- `PUT /api/users/<id>/status` -> Body: `{"status": "Active"|"Locked"}`.
-- `PUT /api/users/<id>/role` -> Body: `{"role": "Admin"|"Editor"|"User"}`.
-- `POST /api/users/<id>/reset_password` -> Body: `{"password": "<new_pass>"}`.
-- `DELETE /api/users/<id>` -> Deletes user.
+- `POST /api/users` -> Body: `{"username": "<email>", "password": "<password>", "role": "User", "status": "Active"}`. Creates user account. Admin only.
+- `POST /api/users/bulk_delete` -> Body: `{"user_ids": [1, 2, ...]}`. Bulk deletes user accounts. Admin only.
+- `PUT /api/users/<id>/status` -> Body: `{"status": "Active"|"Locked"}`. Admin only.
+- `PUT /api/users/<id>/role` -> Body: `{"role": "Admin"|"Editor"|"User"}`. Admin only.
+- `POST /api/users/<id>/reset_password` -> Body: `{"password": "<new_pass>"}`. Admin only.
+- `DELETE /api/users/<id>` -> Deletes user. Admin only.
 - `GET /api/keys` -> Lists all API keys.
 - `POST /api/keys` -> Creates new API key (`key-<hex>`). Returns `201`.
 - `DELETE /api/keys/<id>` -> Deletes single key.
 - `POST /api/keys/bulk_delete` -> Body: `{"key_ids": [1, 2, ...]}`. Bulk deletes specified keys.
+- `GET /api/keys/<id>/activities` -> Returns historical activity events strictly for the specified key ID (supports optional `key_prefix` query parameter to enforce strict key isolation).
+- `GET /api/keys/activities` -> Returns activity events for all keys.
 
 ---
 
@@ -835,7 +852,7 @@ When recreating this project from this specification, verify that:
 2. **Explicit Data Models & Schemas**:
    - The SQLite database schema for authentication (`auth.db`), the JSON schema for central logs (`log.json`), the ChromaDB collections (`documents`, `skills`), and the seed data for tools (`tools/data/employee_database.csv`) are documented in full.
 3. **Exact GUI Layout & Component Behavior**:
-   - Every UI tab, card split ratio (50%/50% grid width), default control value (Max Tokens 2048, Temperature 0.7, Max Turns 3, Chunk Size 800, Overlap 100), and interactive modal flow (Registration in locked state, bulk key deletion confirmation, shutdown confirmation) has exact specifications.
+   - Every UI tab, card split ratio (50%/50% grid width), default control value (Max Tokens 2048, Temperature 0.7, Max Turns 5, Chunk Size 800, Overlap 100), and interactive modal flow (Registration in locked state, bulk key deletion confirmation, shutdown confirmation) has exact specifications.
 4. **Autonomous Agent Planning Loop**:
    - The planning and reasoning workflow (`custom_agent.py`) is specified step-by-step, including skill discovery, similarity matching, tool calling format (`{"tool": "...", "arguments": {...}}`), loop termination criteria (`max_turns`), and conditional document vector searching.
 5. **Security & Inter-Service Authentication**:

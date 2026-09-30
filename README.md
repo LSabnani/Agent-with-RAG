@@ -112,7 +112,7 @@ Access the Web Console at: **`http://localhost:8000`**
 
 ### 🗣️ Page 1: Chat & Knowledge Mgnt
 * **Model Selection:** Choose from active Google AI Studio models or select **Custom Model** to specify an OpenAI-compatible endpoint.
-* **Hyperparameters:** Tune `Temperature` (0.0–2.0) and `Max Tokens`.
+* **Hyperparameters:** Tune `Temperature` (0.0–2.0), `Max Tokens` (default 2048), and `Max Turns` (default: 5, range 1–10).
 * **Agent Selector:** Toggle between **Custom Agent** and **Google ADK Agent**.
 * **Skill Selector:**
   * `Vector Store Selects` (Default): Uses ChromaDB skill matching with configurable `Skill Threshold`.
@@ -143,8 +143,14 @@ Access the Web Console at: **`http://localhost:8000`**
 
 ### 🔑 Page 6: Passwords & API Keys
 * **Current Account Info:** View your active email, assigned role, and SQLite storage backend path.
-* **Passwords Sub-Tab (Admin Only):** Manage users, update role permissions (`Admin`, `Editor`, `User`), trigger password resets, and view user request activity logs.
-* **API Keys Sub-Tab (Admin Only):** Generate new cryptographically secure API keys scoped to specific containers and access levels (`Read`, `Write`, `Admin`) with automatic 1-year expiration. Edit, delete, or revoke keys at any time.
+* **Passwords Sub-Tab (Admin Only):**
+  * **User Account Directory Access Control:** Only users with `Admin` access can make any changes to User accounts (changing roles, toggling Active/Locked status, resetting passwords, creating new users, and deleting users).
+  * **Create New User:** Clicking **Create New User** opens a popup window prompting for username and password with **Cancel** and **Create** buttons. When **Cancel** is clicked, the popup closes without action; when **Create** is clicked, the account is created only if both username and password are provided.
+  * **User Selection & Bulk Deletion:** Each username has an individual checkbox, with a "Select All" checkbox in the column header. A **Delete Users** button next to **Create New User** is enabled only when one or more user checkboxes are checked. The individual Delete button in the Actions column has been removed (retaining role modification, account status toggle, and password resets).
+  * **User Access Activity Table:** Tracks all login attempts, logouts, registration events, and password resets.
+* **API Keys Sub-Tab (Admin Only):**
+  * **Configured Container API Keys:** Generate new cryptographically secure API keys scoped to specific containers and access levels (`Read`, `Write`, `Admin`) with automatic 1-year expiration. Batch deletion of selected keys via checkboxes.
+  * **Interactive Key Activity Inspection:** Clicking any row in the "Configured Container API Keys" table highlights the selected row and automatically displays all historical activities (generation, updates, accesses, and deletions) strictly for that specific API key in the secondary **API Key Activities** table below. Activities are filtered strictly by the unique API key ID and key prefix, ensuring no activity mixing occurs even when multiple keys share identical names.
 
 ---
 

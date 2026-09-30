@@ -208,6 +208,9 @@ def auth_register():
 
 @app.route("/api/users/<int:uid>/status", methods=["PUT"])
 def proxy_update_user_status(uid):
+    user = session.get("user")
+    if user and user.get("role") != "Admin":
+        return jsonify({"status": "failed", "error": "Only users with Admin access can modify user accounts"}), 403
     url = resolve_url(AUTH_URL, "auth_service", 8001)
     try:
         r = requests.put(f"{url}/api/users/{uid}/status", json=request.get_json(silent=True), timeout=5)
@@ -239,26 +242,54 @@ def log_page_view():
     return jsonify({"status": "success"})
 
 # Proxy User and API Key management
-@app.route("/api/users", methods=["GET"])
-def proxy_get_users():
+@app.route("/api/users", methods=["GET", "POST"])
+def proxy_users():
     url = resolve_url(AUTH_URL, "auth_service", 8001)
-    r = requests.get(f"{url}/api/users", timeout=5)
-    return jsonify(r.json()), r.status_code
+    if request.method == "POST":
+        user = session.get("user")
+        if user and user.get("role") != "Admin":
+            return jsonify({"status": "failed", "error": "Only users with Admin access can create user accounts"}), 403
+        r = requests.post(f"{url}/api/users", json=request.get_json(silent=True), timeout=5)
+        return jsonify(r.json()), r.status_code
+    else:
+        r = requests.get(f"{url}/api/users", timeout=5)
+        return jsonify(r.json()), r.status_code
+
+@app.route("/api/users/bulk_delete", methods=["POST"])
+def proxy_bulk_delete_users():
+    user = session.get("user")
+    if user and user.get("role") != "Admin":
+        return jsonify({"status": "failed", "error": "Only users with Admin access can delete user accounts"}), 403
+    url = resolve_url(AUTH_URL, "auth_service", 8001)
+    try:
+        r = requests.post(f"{url}/api/users/bulk_delete", json=request.get_json(silent=True), timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"status": "failed", "error": str(e)}), 502
 
 @app.route("/api/users/<int:uid>/role", methods=["PUT"])
 def proxy_update_user_role(uid):
+    user = session.get("user")
+    if user and user.get("role") != "Admin":
+        return jsonify({"status": "failed", "error": "Only users with Admin access can modify user accounts"}), 403
     url = resolve_url(AUTH_URL, "auth_service", 8001)
     r = requests.put(f"{url}/api/users/{uid}/role", json=request.get_json(silent=True), timeout=5)
     return jsonify(r.json()), r.status_code
 
 @app.route("/api/users/<int:uid>/reset_password", methods=["POST"])
 def proxy_reset_password(uid):
+    user = session.get("user")
+    if user and user.get("role") != "Admin":
+        return jsonify({"status": "failed", "error": "Only users with Admin access can modify user accounts"}), 403
     url = resolve_url(AUTH_URL, "auth_service", 8001)
     r = requests.post(f"{url}/api/users/{uid}/reset_password", json=request.get_json(silent=True), timeout=5)
     return jsonify(r.json()), r.status_code
 
 @app.route("/api/users/<int:uid>", methods=["DELETE"])
 def proxy_delete_user(uid):
+    user = session.get("user")
+    if user and user.get("role") != "Admin":
+        return jsonify({"status": "failed", "error": "Only users with Admin access can modify user accounts"}), 403
     url = resolve_url(AUTH_URL, "auth_service", 8001)
     r = requests.delete(f"{url}/api/users/{uid}", timeout=5)
     return jsonify(r.json()), r.status_code
@@ -295,6 +326,30 @@ def proxy_bulk_delete_keys():
         return jsonify(r.json()), r.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+@app.route("/api/keys/<int:kid>/activities", methods=["GET"])
+def proxy_key_activities(kid):
+    url = resolve_url(AUTH_URL, "auth_service", 8001)
+    key_prefix = request.args.get("key_prefix", "")
+    params = {}
+    if key_prefix:
+        params["key_prefix"] = key_prefix
+    try:
+        r = requests.get(f"{url}/api/keys/{kid}/activities", params=params, timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"status": "failed", "error": str(e)}), 502
+
+@app.route("/api/keys/activities", methods=["GET"])
+def proxy_all_key_activities():
+    url = resolve_url(AUTH_URL, "auth_service", 8001)
+    key_name = request.args.get("key_name", "")
+    key_prefix = request.args.get("key_prefix", "")
+    try:
+        r = requests.get(f"{url}/api/keys/activities", params={"key_name": key_name, "key_prefix": key_prefix}, timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({"status": "failed", "error": str(e)}), 502
 
 # -------------------------------------------------------------
 # Chat & Agents APIs

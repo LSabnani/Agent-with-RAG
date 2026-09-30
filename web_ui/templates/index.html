@@ -124,7 +124,7 @@
               </div>
               <div class="header-control">
                 <label for="chatMaxTurns"><span class="control-icon">🔄</span> Max Turns:</label>
-                <input type="number" id="chatMaxTurns" value="3" min="1" max="10">
+                <input type="number" id="chatMaxTurns" value="5" min="1" max="10">
               </div>
             </div>
           </div>
@@ -789,20 +789,28 @@
         <div class="subtab-content active" id="subtab-passwords">
           <!-- Table 1: All Users -->
           <div class="glass-card full-width-card mb-4">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
               <div class="card-title">
                 <span class="card-icon">👥</span> User Accounts Directory
               </div>
-              <button id="btnOpenUserKeyModal" class="btn-primary" style="padding: 0.4rem 1rem;">
-                <span class="icon">➕</span> Generate New API Key
-              </button>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="btnDeleteSelectedUsers" class="btn-danger" style="padding: 0.4rem 1rem; font-size: 0.85rem;" disabled>
+                  <span class="icon">🗑️</span> Delete Users
+                </button>
+                <button id="btnOpenCreateUserModal" class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">
+                  <span class="icon">➕</span> Create New User
+                </button>
+              </div>
             </div>
             <div class="card-body">
               <div class="table-scroll-container" style="max-height: 220px; overflow-y: auto;">
                 <table class="data-table" id="usersTable">
                   <thead>
                     <tr>
-                      <th>User Name</th>
+                      <th style="min-width: 140px;">
+                        <input type="checkbox" id="selectAllUsers" title="Select All" style="margin-right: 8px; vertical-align: middle;">
+                        <span>User Name</span>
+                      </th>
                       <th>Date / Time Created</th>
                       <th>Role</th>
                       <th>Status</th>
@@ -881,6 +889,38 @@
                   </thead>
                   <tbody id="apiKeysTbody">
                     <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table 2: API Key Activities -->
+          <div class="glass-card full-width-card" id="cardApiKeyActivities" style="margin-top: 1.5rem;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-title">
+                <span class="card-icon">📜</span> API Key Activities: <span id="selectedApiKeyNameText" style="color: #38bdf8; font-weight: normal; margin-left: 6px;">None Selected</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="table-scroll-container" style="max-height: 260px; overflow-y: auto;">
+                <table class="data-table" id="apiKeyActivitiesTable">
+                  <thead>
+                    <tr>
+                      <th>Local Date / Time</th>
+                      <th>Key Name</th>
+                      <th>Key Prefix</th>
+                      <th>Container</th>
+                      <th>Access Level</th>
+                      <th>Action</th>
+                      <th>Status</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="apiKeyActivitiesTbody">
+                    <tr>
+                      <td colspan="8" class="text-center text-muted">Click an API key row above to view its activity history.</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1069,37 +1109,29 @@
     </div>
   </div>
 
-  <!-- Modal 5D: Generate API Key for User Popup Window -->
-  <div class="modal-overlay hidden" id="userKeyModal" style="z-index: 1001;">
-    <div class="modal-box" style="max-width: 460px;">
+  <!-- Modal 5D: Create New User Popup Window -->
+  <div class="modal-overlay hidden" id="createUserModal" style="z-index: 1001;">
+    <div class="modal-box" style="max-width: 420px;">
       <div class="modal-header">
-        <h3><span class="modal-icon">🗝️</span> Generate API Key for User</h3>
-        <button id="btnCloseUserKeyModalX" class="btn-close">&times;</button>
+        <h3><span class="modal-icon">👤</span> Create New User</h3>
+        <button id="btnCloseCreateUserModalX" class="btn-close">&times;</button>
       </div>
       <div class="modal-body">
+        <div id="createUserAlertMsg" class="modal-alert-text hidden" style="margin-bottom: 0.75rem; font-size: 0.88rem; color: #ef4444;"></div>
         <div style="display: flex; flex-direction: column; gap: 0.85rem;">
           <div>
             <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">User Name</label>
-            <input type="text" id="userKeyUsername" class="input-text" style="width: 100%;" placeholder="Enter username">
+            <input type="text" id="createUserNameInput" class="input-text" style="width: 100%;" placeholder="Enter username">
           </div>
           <div>
-            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Target Container</label>
-            <select id="userKeyContainerSelect" class="input-text" style="width: 100%;">
-              <option value="all">All Containers</option>
-              <option value="web_ui">web_ui (Port 8000)</option>
-              <option value="auth_service">auth_service (Port 8001)</option>
-              <option value="agents">agents (Port 8002)</option>
-              <option value="doc_rag">doc_rag (Port 8003)</option>
-              <option value="tools">tools (Port 8005)</option>
-              <option value="logging">logging (Port 8006)</option>
-              <option value="ollama">ollama (Port 11434)</option>
-            </select>
+            <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #cbd5e1; margin-bottom: 4px;">Password</label>
+            <input type="password" id="createUserPasswordInput" class="input-text" style="width: 100%;" placeholder="Enter password">
           </div>
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-        <button id="btnCancelUserKey" class="btn-secondary">Cancel</button>
-        <button id="btnProceedUserKey" class="btn-primary">Generate</button>
+        <button id="btnCancelCreateUser" class="btn-secondary">Cancel</button>
+        <button id="btnConfirmCreateUser" class="btn-primary">Create</button>
       </div>
     </div>
   </div>

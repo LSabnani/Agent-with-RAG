@@ -119,6 +119,60 @@ def test_auth_service():
     assert val_res.status_code == 200
     assert val_res.get_json()["valid"] is True
 
+    # Test API Key Activities
+    act_res = client.get(f"/api/keys/{key_data['key_id']}/activities")
+    assert act_res.status_code == 200
+    acts = act_res.get_json()["activities"]
+    assert len(acts) >= 2  # Key Generation + API Key Access
+
+    # Test that activities for keys with identical key_name are strictly isolated to their own key_id
+    dup_res1 = client.post("/api/keys", json={
+        "key_name": "Shared Key Name",
+        "containers": ["tools"],
+        "access_levels": ["read"],
+        "creator": "admin@example.com"
+    })
+    assert dup_res1.status_code == 201
+    k1_id = dup_res1.get_json()["key_id"]
+
+    dup_res2 = client.post("/api/keys", json={
+        "key_name": "Shared Key Name",
+        "containers": ["agents"],
+        "access_levels": ["write"],
+        "creator": "admin@example.com"
+    })
+    assert dup_res2.status_code == 201
+    k2_id = dup_res2.get_json()["key_id"]
+
+    # Query key 1 activities - must contain k1_id activities and NOT k2_id activities
+    act_k1 = client.get(f"/api/keys/{k1_id}/activities").get_json()["activities"]
+    assert len(act_k1) >= 1
+    assert all(a["key_id"] == k1_id for a in act_k1)
+
+    act_k2 = client.get(f"/api/keys/{k2_id}/activities").get_json()["activities"]
+    assert len(act_k2) >= 1
+    assert all(a["key_id"] == k2_id for a in act_k2)
+
+    # Test Admin Create User validation (empty fails)
+    fail_create = client.post("/api/users", json={"username": "", "password": ""})
+    assert fail_create.status_code == 400
+
+    # Test Admin Create User success
+    admin_uname = f"created_user_{int(time.time() * 1000)}"
+    create_res = client.post("/api/users", json={
+        "username": admin_uname,
+        "password": "pass123_secure",
+        "role": "User",
+        "status": "Active"
+    })
+    assert create_res.status_code == 201
+    created_id = create_res.get_json()["user_id"]
+
+    # Test Bulk Delete Users
+    bulk_del = client.post("/api/users/bulk_delete", json={"user_ids": [created_id]})
+    assert bulk_del.status_code == 200
+    assert bulk_del.get_json()["deleted_count"] == 1
+
 # 3. Test Tools Service
 def test_tools_service():
     import tools.server as tools_srv

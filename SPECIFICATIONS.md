@@ -86,7 +86,7 @@ The Main App window should have:
 - Add a drop down box called "Agent" on the right side of the card. The choices are: Custom Agent, Google ADK LlmAgent.
   - If the user selects Custom Agent, use the agent described in the Agent section of this document.
   - If the user selects Google ADK Agent, use the google ADK agent
-- To the right of the "Agent" box, add a text box for the user to select the "Max Turns" the default is 3. Do not allow the user to set the number larger than 10. Use this as the maximum number of turns for the maximum Agent loop or number of turns.
+- To the right of the "Agent" box, add a text box for the user to select the "Max Turns" the default is 5. Do not allow the user to set the number larger than 10. Use this as the maximum number of turns for the maximum Agent loop or number of turns.
 - At the bottom of the card, put a text box for the user to enter the chat message.
   - Use a new conversation ID for each question
   - When the user clicks on the "Send" button or presses the Enter key, send the message to the agents container to process.
@@ -255,21 +255,23 @@ The Documents and Skills container accesses:
 - If the user has editor or user access, only display the card showing the current user email address, role, and the storage backend
 - If the user has admin access, display two sub-tabs: Passwords and API Keys
   - Passwords tab displays:
-    - A table of all the users:
-    - Add a button to create a new user account
-      - When clicked, a popup window opens and displays:
-        - A text box to enter the User Name for the new user
-        - A text box to enter the initial Password
-        - A dropdown box with the list of roles (Admin, Editor, User) 
-
-      - The table should have columns showing:
-        - User Name
-        - Date/time when the account was created
-        - Role (allow the admin to change the roles). The list includes: Admin, Editor, and User.
-        - Add a button to reset the password of any user
-        - Add a button to delete any user
-      - Only show 5 rows in the table
-      - There should be a scroll bar on the right side to allow the user to scroll through all the items
+    - User Account Directory table:
+      - Only allow users with Admin access to make any changes to User accounts (changing roles, locking/unlocking accounts, resetting passwords, creating new users, and deleting users).
+      - Add a button named "Create New User" in the header of the User Accounts Directory.
+        - When clicked, open a popup window asking the admin to enter the user name and password.
+        - The popup provides "Cancel" and "Create" buttons.
+        - When the "Cancel" button is clicked, close the popup window without creating an account.
+        - When the "Create" button is clicked, create a user ONLY if both the user name and password are entered.
+      - Add the "Delete Users" button next to "Create New User":
+        - Only enable the "Delete Users" button if one or more of the checkboxes next to user names are checked.
+        - Disable the button if no checkboxes are checked or if the logged-in user is not an Admin.
+      - The table contains the following columns:
+        - User Name: Includes an individual selection checkbox next to the user name, and a "Check All" checkbox at the column name header to select/deselect all rows.
+        - Date/time when the account was created.
+        - Role (allows the admin to select and change roles between Admin, Editor, and User).
+        - Status badge (Active/Locked) with Lock/Unlock action toggle.
+        - Actions column: Contains "Reset Pass" button to reset passwords. Note: The individual "Delete" button in the ACTIONS column is removed.
+      - Only show 5 rows in the table viewport, with a scroll bar on the right side to allow scrolling through all user accounts.
 
     - The second table displays the list of all user access and requests:
       - The table should have columns showing: Local Date/time, User Email, Request Type, and Status
@@ -298,7 +300,7 @@ The Documents and Skills container accesses:
         - Notify the user that the API key will not be displayed again and they should save it in a safe place.
         - Show a button "Close" to allow the user to close the popup window. This will close the popup window and return to the previous screen.
 
-    - A table listing the API keys:
+    - A table listing the API keys ("Configured Container API Keys"):
       - The table should contain the following columns:
         - A checkbox to select the API key. When clicked, select the row.
         - Key Name
@@ -316,7 +318,14 @@ The Documents and Skills container accesses:
             - A "Delete" button to allow the user to delete the API key 
             - An "Update" button to allow the user to update the API key
             - When one of the last two buttons is clicked, bring a popup asking for confirmation from the user to delete or update the API key.
-      - There should be a scroll bar on the right side to allow the user to scroll through all the items
+      - There should be a scroll bar on the right side to allow the user to scroll through all the items.
+      - Interactive API key selection: When one of the rows in "Configured Container API Keys" is clicked:
+        - Highlight the clicked row.
+        - Display all the activities strictly related to that selected API key in the second table below called "API Key Activities" (filtered strictly by the key's unique ID and prefix so activities from other keys, even with identical names, are not shown).
+    - Second table below: "API Key Activities":
+      - Displays all activity history strictly for the selected API key (queried by its unique ID and key prefix).
+      - Columns: Local Date / Time, Key Name, Key Prefix, Container, Access Level, Action / Event Type, Status, Details.
+      - Displays records for Key Generation, Key Updates, API Key Accesses/Validations across containers, Expiration, and Deletions.
 
 ## Container Requirements
 - The project should be run using Docker.

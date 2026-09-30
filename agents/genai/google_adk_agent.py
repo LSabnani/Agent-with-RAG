@@ -24,7 +24,7 @@ class GoogleADKAgent:
         )
 
     def run(self, message, conversation_id, model="gemma-4-26b-a4b-it", temperature=0.7, max_tokens=2048,
-            max_turns=3, skill_selector="Vector Store Selects", skill_threshold=0.2, doc_threshold=0.3,
+            max_turns=5, skill_selector="Vector Store Selects", skill_threshold=0.2, doc_threshold=0.3,
             max_chunks=5, custom_endpoint=None, api_key=None):
         
         # Run with agent_type Google ADK Agent
